@@ -4,7 +4,7 @@ import (
 	"errors"
 )
 
-type Storage interface {
+type StorageService interface {
 	Get(string) (string, error)
 	Put(string, string) error
 	Delete(string) error
@@ -14,7 +14,7 @@ type hashTable struct {
 	table map[string]string
 }
 
-func NewHashTable() Storage {
+func NewStorageService() StorageService {
 	return &hashTable{
 		table: make(map[string]string),
 	}
