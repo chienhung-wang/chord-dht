@@ -7,6 +7,7 @@ import (
 	rpc "chord-dht/chord_rpc"
 	"fmt"
 	"log"
+	"math/big"
 	"net"
 	"os"
 	"strings"
@@ -23,16 +24,26 @@ func startServer(s *grpc.Server, lis net.Listener) error {
 	return nil
 }
 
+func getAddr() (port string, host_port string) {
+	host := os.Args[1]
+	port = os.Args[2]
+	host_port = host + ":" + port
+	return
+}
+
 func main() {
 	fmt.Println("Hello Chord")
 
+	port, host_port := getAddr()
+
 	storageService := chord.NewStorageService()
 
-	lis, err := net.Listen("tcp", "localhost:"+os.Args[1])
+	lis, err := net.Listen("tcp", host_port)
 	if err != nil {
-		log.Fatalln("Failed to listen to ", os.Args[1])
+		log.Fatalln("Failed to listen to port", port)
 	}
 	log.Println("Server listening at " + lis.Addr().String())
+
 	s := grpc.NewServer()
 	nodeServer := rpc.NewChordNodeServer(storageService)
 
@@ -40,9 +51,16 @@ func main() {
 
 	log.Println("Server registered...")
 
-	go func() {
-		startServer(s, lis)
-	}()
+	go startServer(s, lis)
+
+	node := chord.NewNode(host_port)
+
+	bi := big.NewInt(3)
+	node.Fingers[0] = &chord.FingerEntry{
+		Id:   bi,
+		Addr: "localhost:50002",
+	}
+	log.Println("Node id ---> ", *node.Fingers[0])
 
 	log.Println("Start getting input...")
 
