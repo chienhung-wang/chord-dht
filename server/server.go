@@ -1,4 +1,4 @@
-package chord_rpc
+package server
 
 import (
 	"chord-dht/chord"

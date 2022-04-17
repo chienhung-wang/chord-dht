@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"chord-dht/chord"
 	pb "chord-dht/chord_pb"
-	rpc "chord-dht/chord_rpc"
+	rpc "chord-dht/server"
 	"fmt"
 	"log"
 	"net"
@@ -106,7 +106,7 @@ func main() {
 		case "GET":
 			if len(texts) >= 2 {
 				if key, val, err := node.Get(texts[1]); err == nil {
-					fmt.Printf("Key: %v, Val: %v\n -> GET\n", key, val)
+					fmt.Printf("{Key: %v, Val: %v} -> GET\n", key, val)
 				} else {
 					fmt.Println("Error: ", err)
 				}
@@ -114,7 +114,7 @@ func main() {
 		case "PUT":
 			if len(texts) >= 3 {
 				if key, val, err := node.Put(texts[1], texts[2]); err == nil {
-					fmt.Printf("{Key: %v, Val: %v\n} -> PUT\n", key, val)
+					fmt.Printf("{Key: %v, Val: %v} -> PUT\n", key, val)
 				} else {
 					fmt.Println("Error: ", err)
 				}
@@ -122,7 +122,7 @@ func main() {
 		case "DELETE":
 			if len(texts) >= 2 {
 				if key, err := node.Delete(texts[1]); err == nil {
-					fmt.Printf("{Key: %v\n} -> DELET\n", key)
+					fmt.Printf("{Key: %v} -> DELET\n", key)
 				} else {
 					fmt.Println("Error: ", err)
 				}
