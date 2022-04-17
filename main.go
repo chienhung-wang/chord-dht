@@ -7,7 +7,6 @@ import (
 	rpc "chord-dht/chord_rpc"
 	"fmt"
 	"log"
-	"math/big"
 	"net"
 	"os"
 	"strings"
@@ -37,6 +36,8 @@ func main() {
 	port, host_port := getAddr()
 
 	storageService := chord.NewStorageService()
+	node := chord.NewNode(host_port, storageService)
+	id := node.Id
 
 	lis, err := net.Listen("tcp", host_port)
 	if err != nil {
@@ -45,28 +46,25 @@ func main() {
 	log.Println("Server listening at " + lis.Addr().String())
 
 	s := grpc.NewServer()
-	nodeServer := rpc.NewChordNodeServer(storageService)
+	rpcServer := rpc.NewChordNodeServer(storageService, node)
 
-	pb.RegisterChordNodeServer(s, nodeServer)
+	pb.RegisterChordNodeServer(s, rpcServer)
 
 	log.Println("Server registered...")
 
 	go startServer(s, lis)
 
-	node := chord.NewNode(host_port)
+	go node.Stabilize()
 
-	bi := big.NewInt(3)
-	node.Fingers[0] = &chord.FingerEntry{
-		Id:   bi,
-		Addr: "localhost:50002",
-	}
-	log.Println("Node id ---> ", *node.Fingers[0])
+	// node.Succ[0] = suc
+
+	log.Println("Node id ---> ", id)
 
 	log.Println("Start getting input...")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Print("Command: ")
+		fmt.Print("> ")
 		scanner.Scan()
 		input := scanner.Text()
 
@@ -74,25 +72,56 @@ func main() {
 		cmd := texts[0]
 
 		switch cmd {
+		case "JOIN":
+			if len(texts) >= 2 {
+				addr := texts[1]
+				if succ, err := chord.RpcJoin(addr, node.Addr, node.Id); err == nil {
+					fmt.Printf("found successor's id: %v, addr: %v\n --> JOIN\n", succ.Id, succ.Addr)
+					node.Succ[0] = succ
+				} else {
+					fmt.Println("Error: ", err)
+				}
+			}
+		case "SUCC":
+			if len(texts) >= 1 {
+				if node.Succ[0] == nil {
+					fmt.Println("Successor is nil")
+				} else {
+					fmt.Println("Successor -> ", node.Succ[0])
+				}
+
+			}
+		case "MAP":
+			if len(texts) >= 1 {
+				fmt.Println("Local Hash Table -> \n", storageService.GetLocalTable())
+			}
+		case "STAB":
+			if len(texts) >= 1 {
+				node.Stabilize()
+			}
+		case "PRED":
+			if len(texts) >= 1 {
+				fmt.Println("Predescessor -> ", node.Pred)
+			}
 		case "GET":
-			if len(texts) >= 3 {
-				if key, val, err := rpc.Get(texts[2], texts[1]); err == nil {
+			if len(texts) >= 2 {
+				if key, val, err := node.Get(texts[1]); err == nil {
 					fmt.Printf("Key: %v, Val: %v\n -> GET\n", key, val)
 				} else {
 					fmt.Println("Error: ", err)
 				}
 			}
 		case "PUT":
-			if len(texts) >= 4 {
-				if key, val, err := rpc.Put(texts[3], texts[1], texts[2]); err == nil {
+			if len(texts) >= 3 {
+				if key, val, err := node.Put(texts[1], texts[2]); err == nil {
 					fmt.Printf("{Key: %v, Val: %v\n} -> PUT\n", key, val)
 				} else {
 					fmt.Println("Error: ", err)
 				}
 			}
 		case "DELETE":
-			if len(texts) >= 3 {
-				if key, err := rpc.Delete(texts[2], texts[1]); err == nil {
+			if len(texts) >= 2 {
+				if key, err := node.Delete(texts[1]); err == nil {
 					fmt.Printf("{Key: %v\n} -> DELET\n", key)
 				} else {
 					fmt.Println("Error: ", err)

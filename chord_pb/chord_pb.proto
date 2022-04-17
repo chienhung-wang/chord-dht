@@ -5,10 +5,13 @@ option go_package = "./chord_pb";
 
 
 service ChordNode {
-    // rpc Join(NodeAddr) returns (NodeAddr) {} // Return found successor
-    // rpc GetPred(NodeAddr) returns (NodeAddr) {} // Return found predecessor
+    rpc Join(NodeAddr) returns (NodeAddr) {} // Return found successor
+    rpc FindSuccessor(NodeId) returns (FindFindSuccessorResp) {}
+    rpc GetPredecessor(Empty) returns (NodeAddr) {} // Return found predecessor
+    rpc Notify(NodeAddr) returns (Empty) {} // Could consider adding a sequence number
+    
     // rpc GetNodeInfo(NodeAddr) returns (NodeInfo) {} // Return full info of the node
-    // rpc Notify(NodeAddr) returns (NodeInfo) {} //  Return full info of the new successor
+    
     rpc MapGet(Key) returns (KeyVal) {}
     rpc MapPut(KeyVal) returns (KeyVal) {}
     rpc MapDelete(Key) returns (Key) {}
@@ -23,20 +26,21 @@ message Key {
     string key = 1;
 }
 
-
-// message NodeAddr {
-//     int32 hash = 1;
-//     string host = 2;
-//     string port = 3;
-// }
+message NodeId {
+    bytes id = 1;
+}
 
 
-// message FingerTable {
-//     repeated NodeAddr nodeAddr = 1;
-// }
+message NodeAddr {
+    bytes hash = 1;
+    string addr = 2;
+}
 
+message FindFindSuccessorResp {
+    bool found = 1;
+    NodeAddr addr = 2;
+}
 
-// message NodeInfo {
-//     NodeAddr pred = 1;
-//     FingerTable fingerTable = 2;
-// }
+message Empty {
+    bool empty = 1;
+}

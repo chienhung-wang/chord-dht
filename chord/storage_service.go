@@ -8,6 +8,7 @@ type StorageService interface {
 	Get(string) (string, error)
 	Put(string, string) error
 	Delete(string) error
+	GetLocalTable() map[string]string
 }
 
 type hashTable struct {
@@ -18,6 +19,10 @@ func NewStorageService() StorageService {
 	return &hashTable{
 		table: make(map[string]string),
 	}
+}
+
+func (kv *hashTable) GetLocalTable() map[string]string {
+	return kv.table
 }
 
 func (kv *hashTable) Get(key string) (string, error) {
