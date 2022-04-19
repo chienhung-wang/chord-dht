@@ -5,6 +5,7 @@ import (
 	pb "chord-dht/chord_pb"
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"math/big"
 )
@@ -20,6 +21,10 @@ func NewChordNodeServer(ss chord.StorageService, n *chord.Node) *ChordNodeServer
 		storageService: ss,
 		nodeService:    n,
 	}
+}
+
+func (s *ChordNodeServer) CheckAlive(ctx context.Context, in *pb.Empty) (*pb.Empty, error) {
+	return &pb.Empty{Empty: true}, nil
 }
 
 func (s *ChordNodeServer) Join(ctx context.Context, in *pb.NodeAddr) (*pb.NodeAddr, error) {
@@ -49,6 +54,17 @@ func (s *ChordNodeServer) FindSuccessor(ctx context.Context, in *pb.NodeId) (*pb
 	found, next := s.nodeService.FindSucessor(target)
 
 	return &pb.FindFindSuccessorResp{Found: found, Addr: &pb.NodeAddr{Hash: next.Id.Bytes(), Addr: next.Addr}}, nil
+}
+
+func (s *ChordNodeServer) GetFirstSuccessor(ctx context.Context, in *pb.Empty) (*pb.NodeAddr, error) {
+	if s.nodeService.SuccList[0] == nil {
+		return &pb.NodeAddr{Hash: *new([]byte), Addr: s.nodeService.Addr}, fmt.Errorf("no successor ")
+	}
+	succ := s.nodeService.GetAliveSuccessor()
+	if succ == nil {
+		return nil, fmt.Errorf("no successor ")
+	}
+	return &pb.NodeAddr{Hash: succ.Id.Bytes(), Addr: succ.Addr}, nil
 }
 
 func (s *ChordNodeServer) Notify(ctx context.Context, in *pb.NodeAddr) (*pb.Empty, error) {

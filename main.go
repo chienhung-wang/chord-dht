@@ -56,9 +56,9 @@ func main() {
 
 	go node.Stabilize()
 
-	go node.FixFinger()
+	go node.UpdateBackupSuccessors()
 
-	// node.Succ[0] = suc
+	go node.FixFinger()
 
 	log.Println("Node id ---> ", id)
 
@@ -86,15 +86,15 @@ func main() {
 			}
 		case "SUCC":
 			if len(texts) >= 1 {
-				if node.Succ[0] == nil {
+				if node.SuccList[0] == nil {
 					fmt.Println("Successor is nil")
 				} else {
-					fmt.Println("Successor -> ", node.Succ[0])
+					fmt.Println("Successor -> ", node.SuccList[0])
 				}
 
 			}
 		case "SELF":
-			fmt.Printf("Self:\nid: %v\nport: %v", node.Id, port)
+			fmt.Printf("Self:\nid: %v\nport: %v\n", node.Id, port)
 		case "MAP":
 			if len(texts) >= 1 {
 				fmt.Println("Local Hash Table -> \n", storageService.GetLocalTable())
@@ -115,6 +115,15 @@ func main() {
 				}
 				fmt.Println("Fingers -> ", ring)
 			}
+		case "SUCCLIST":
+			println("SuccList -> ")
+			for _, suc := range node.SuccList {
+				if suc == nil {
+					break
+				}
+				fmt.Printf(" -> %v ", suc.Addr[10:])
+			}
+			println()
 		case "GET":
 			if len(texts) >= 2 {
 				if key, val, err := node.Get(texts[1]); err == nil {

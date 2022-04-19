@@ -20,11 +20,13 @@ type Node struct {
 	Id             *big.Int
 	Addr           string
 	Pred           *NodeEntry
-	Succ           []*NodeEntry // Successor list
+	Succ           *NodeEntry
+	SuccList       []*NodeEntry // Successor list
 	Fingers        [161]*NodeEntry
 	FingersStarts  [161]*big.Int
 	FingersEnds    [161]*big.Int
 	storageService StorageService
+	Broken         bool
 }
 
 type NodeEntry struct {
@@ -61,27 +63,18 @@ func NewNode(addr string, storageService StorageService) *Node {
 		fingerEnds[i] = new(big.Int).Mod(val, modVal)
 		fingerStarts[i] = new(big.Int).Add(fingerEnds[i-1], one)
 
-		// val2 := new(big.Int).Exp(
-		// 	two,
-		// 	new(big.Int).Sub(big.NewInt(i), one),
-		// 	nil,
-		// )
-		// val3 := new(big.Int).Add(id, val2)
-		// fmt.Println(new(big.Int).Mod(val3, modVal))
 	}
-
-	// fmt.Println(fingerEnds[:10])
-	// fmt.Println(fingerStarts[:10])
 
 	return &Node{
 		Id:             id,
 		Addr:           addr,
 		Pred:           selfNodeEntry,
-		Succ:           make([]*NodeEntry, 3),
+		SuccList:       make([]*NodeEntry, 3),
 		Fingers:        fingers,
 		FingersEnds:    fingerEnds,
 		FingersStarts:  fingerStarts,
 		storageService: storageService,
+		Broken:         false,
 	}
 }
 
@@ -100,10 +93,11 @@ func (n *Node) FixFinger() {
 	rand.Seed(time.Now().UnixNano())
 
 	for {
+		// log.Println("")
 		idx := rand.Intn(161-1) + 1
 		found, err := n.find(n.FingersStarts[idx])
 		if err != nil {
-			log.Println("fix finger: no successor found")
+			log.Println("fix finger: no successor found", found)
 		} else {
 			n.Fingers[idx] = found
 		}
@@ -112,10 +106,10 @@ func (n *Node) FixFinger() {
 }
 
 func (n *Node) JoinTo(succ *NodeEntry) error {
-	n.Succ[0] = succ
+	n.SuccList[0] = succ
 	n.Fingers[1] = succ
 
-	err := RpcNotify(n.Succ[0].Addr, &NodeEntry{Id: n.Id, Addr: n.Addr})
+	err := RpcNotify(n.SuccList[0].Addr, &NodeEntry{Id: n.Id, Addr: n.Addr})
 	if err != nil {
 		return fmt.Errorf("jointo notify error: %v", err)
 	}
@@ -130,20 +124,17 @@ func (n *Node) JoinTo(succ *NodeEntry) error {
 		return err
 	}
 
-	go n.FixFinger()
-
 	return nil
 }
 
 func (n *Node) InitFingers(fingers []*NodeEntry) error {
 	m := 160
-	fmt.Println(n.Fingers)
 	for i := 1; i <= m-1; i++ {
 		if util.BetweenBeginInclusive(n.Id, n.FingersStarts[i+1], n.Fingers[i].Id) {
 			n.Fingers[i+1] = n.Fingers[i]
 		} else {
 			var found bool
-			var next = n.Succ[0]
+			var next = n.SuccList[0]
 			var err error
 			fmt.Printf("different ")
 			for j := 0; j < 32; j++ {
@@ -171,20 +162,75 @@ func (n *Node) InitFingers(fingers []*NodeEntry) error {
 	return nil
 }
 
-func (n *Node) Stabilize() error {
+func (n *Node) UpdateBackupSuccessors() {
 	for {
-		if n.Succ[0] != nil {
-			succ_pred, err := RpcGetPredecessor(n.Succ[0].Addr)
+		time.Sleep(time.Second)
+
+		if n.SuccList[0] == nil {
+			continue
+		}
+
+		for i := 1; i < 3; i++ {
+			firstSucc, err := RpcGetFirstSuccessor(n.SuccList[i-1].Addr)
+			if err != nil || firstSucc.Id.Cmp(n.Id) == 0 {
+				n.SuccList[i] = nil
+				break
+			}
+			n.SuccList[i] = firstSucc
+		}
+	}
+}
+
+func (n *Node) GetAliveSuccessor() *NodeEntry {
+	if n.SuccList[0] == nil {
+		return nil
+	}
+
+	if err := RpcCheckAlive(n.SuccList[0].Addr); err == nil {
+		return n.SuccList[0]
+	}
+
+	n.SuccList = n.SuccList[1:]
+	n.SuccList = append(n.SuccList, nil)
+
+	n.Broken = true
+	defer func() { n.Broken = false }()
+
+	for i := 1; i < 3; i++ {
+		if n.SuccList[0] == nil {
+			break
+		}
+
+		err := RpcCheckAlive(n.SuccList[0].Addr)
+		if err == nil {
+			for j := 1; j <= 160; j++ {
+				if util.Between(n.Id, n.Fingers[j].Id, n.SuccList[0].Id) {
+					n.Fingers[j] = n.SuccList[0]
+				}
+			}
+			return n.SuccList[0]
+		}
+		n.SuccList = n.SuccList[1:]
+		n.SuccList = append(n.SuccList, nil)
+	}
+
+	return nil
+}
+
+func (n *Node) Stabilize() {
+	for {
+		if succ := n.GetAliveSuccessor(); succ != nil {
+			succ_pred, err := RpcGetPredecessor(succ.Addr)
 			if err != nil {
 				fmt.Errorf("stabilization error: %v", err)
 			}
 			if succ_pred.Id.Cmp(n.Id) != 0 {
-				if util.BetweenNoninclusive(n.Id, succ_pred.Id, n.Succ[0].Id) {
-					n.Succ[0] = succ_pred
+				if util.BetweenNoninclusive(n.Id, succ_pred.Id, succ.Id) {
+					n.SuccList[0] = succ_pred
 				}
 			}
 
-			err = RpcNotify(n.Succ[0].Addr, &NodeEntry{Id: n.Id, Addr: n.Addr})
+			err = RpcNotify(succ.Addr, &NodeEntry{Id: n.Id, Addr: n.Addr})
 			if err != nil {
 				fmt.Errorf("stabilization error: %v", err)
 			}
@@ -197,13 +243,14 @@ func (n *Node) Stabilize() error {
 }
 
 func (n *Node) Notify(caller *NodeEntry) {
-	if n.Succ[0] == nil {
+	if n.SuccList[0] == nil {
 		n.Pred = caller
-		n.Succ[0] = caller
+		n.SuccList[0] = caller
 		return
 	}
-
-	if util.BetweenNoninclusive(n.Pred.Id, caller.Id, n.Id) {
+	err := RpcCheckAlive(n.Pred.Addr)
+	if util.BetweenNoninclusive(n.Pred.Id, caller.Id, n.Id) || err != nil {
+		fmt.Println("new pred -> ", caller.Addr)
 		n.Pred = caller
 	}
 }
@@ -219,12 +266,12 @@ func (n *Node) Find(target *big.Int) (*NodeEntry, error) {
 
 func (n *Node) find(target *big.Int) (*NodeEntry, error) {
 
-	found, next := n.FindSucessor(target)
+	found, succ := n.FindSucessor(target)
 
 	if found {
-		return next, nil
+		return succ, nil
 	}
-
+	var next = succ
 	for i := 0; i < 32; i++ {
 		var err error
 
@@ -232,6 +279,7 @@ func (n *Node) find(target *big.Int) (*NodeEntry, error) {
 
 		if err != nil {
 			log.Println("find err:", err)
+
 			return nil, err
 		}
 		if found {
@@ -244,21 +292,25 @@ func (n *Node) find(target *big.Int) (*NodeEntry, error) {
 }
 
 func (n *Node) FindSucessor(target *big.Int) (bool, *NodeEntry) {
-	if n.Succ[0] == nil {
+	if n.SuccList[0] == nil {
 		return true, &NodeEntry{Id: n.Id, Addr: n.Addr}
 	}
-
-	if util.Between(n.Id, target, n.Succ[0].Id) {
-		return true, n.Succ[0]
+	succ := n.GetAliveSuccessor()
+	if succ == nil {
+		return false, &NodeEntry{Id: n.Id, Addr: n.Addr}
 	}
 
-	if closest := n.ClosestProcedingFinger(target); closest != nil {
-		return false, closest
+	if util.Between(n.Id, target, succ.Id) {
+		return true, n.SuccList[0]
 	}
 
-	// TODO: Check fingertable
+	if !n.Broken {
+		if closest := n.ClosestProcedingFinger(target); closest != nil {
+			return false, closest
+		}
+	}
 
-	return false, n.Succ[0]
+	return false, succ
 }
 
 func (n *Node) ClosestProcedingFinger(target *big.Int) *NodeEntry {
@@ -292,13 +344,6 @@ func (n *Node) GetFingers() ([][]byte, []string) {
 
 	return ids, addresses
 }
-
-// func (n *Node) UpdateFingers() {
-// 	m := 160
-// 	for i := 1; i <= m; i++ {
-
-// 	}
-// }
 
 func (n *Node) GetKeyLocation(key string) (*NodeEntry, error) {
 

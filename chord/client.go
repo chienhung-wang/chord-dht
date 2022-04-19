@@ -28,7 +28,7 @@ func connectTo(address string) (pb.ChordNodeClient, *grpc.ClientConn, context.Co
 func RpcJoin(address string, ownAddr string, id *big.Int) (*NodeEntry, error) {
 	client, conn, ctx, cancel, err := connectTo(address)
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 	defer conn.Close()
 	defer cancel()
@@ -43,13 +43,30 @@ func RpcJoin(address string, ownAddr string, id *big.Int) (*NodeEntry, error) {
 	return &NodeEntry{Id: succId, Addr: res.Addr}, nil
 }
 
+func RpcCheckAlive(address string) error {
+	client, conn, ctx, cancel, err := connectTo(address)
+	defer conn.Close()
+	defer cancel()
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	_, err = client.CheckAlive(ctx, &pb.Empty{Empty: true})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func RpcFindSuccessor(address string, id *big.Int) (bool, *NodeEntry, error) {
 	client, conn, ctx, cancel, err := connectTo(address)
 	defer conn.Close()
 	defer cancel()
 
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 
 	res, err := client.FindSuccessor(ctx, &pb.NodeId{Id: id.Bytes()})
@@ -68,7 +85,7 @@ func RpcGetPredecessor(address string) (*NodeEntry, error) {
 	defer conn.Close()
 	defer cancel()
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 
 	pred, err := client.GetPredecessor(ctx, &pb.Empty{Empty: true})
@@ -83,12 +100,31 @@ func RpcGetPredecessor(address string) (*NodeEntry, error) {
 	return predEntry, nil
 }
 
+func RpcGetFirstSuccessor(address string) (*NodeEntry, error) {
+	client, conn, ctx, cancel, err := connectTo(address)
+	defer conn.Close()
+	defer cancel()
+	if err != nil {
+		log.Println(err)
+	}
+
+	firstSucc, err := client.GetFirstSuccessor(ctx, &pb.Empty{Empty: true})
+	if err != nil {
+		log.Println("rpc get first successor: ", err)
+		return nil, err
+	}
+
+	id := big.NewInt(0).SetBytes(firstSucc.GetHash())
+
+	return &NodeEntry{Id: id, Addr: firstSucc.GetAddr()}, nil
+}
+
 func RpcHelpFind(address string, id *big.Int) (*NodeEntry, error) {
 	client, conn, ctx, cancel, err := connectTo(address)
 	defer conn.Close()
 	defer cancel()
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 
 	found, err := client.HelpFind(ctx, &pb.NodeId{Id: id.Bytes()})
@@ -106,7 +142,7 @@ func RpcGetFingers(address string) ([]*NodeEntry, error) {
 	defer conn.Close()
 	defer cancel()
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 
 	table, err := client.GetFingers(ctx, &pb.Empty{Empty: true})
@@ -149,7 +185,7 @@ func (n *Node) Get(key string) (string, string, error) {
 	defer cancel()
 
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 
 	kv, err := client.MapGet(ctx, &pb.Key{Key: key})
@@ -172,7 +208,7 @@ func (n *Node) Put(key string, val string) (string, string, error) {
 	defer cancel()
 
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 
 	kv, err := client.MapPut(ctx, &pb.KeyVal{Key: key, Val: val})
@@ -195,7 +231,7 @@ func (n *Node) Delete(key string) (string, error) {
 	defer cancel()
 
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 
 	k, err := client.MapDelete(ctx, &pb.Key{Key: key})

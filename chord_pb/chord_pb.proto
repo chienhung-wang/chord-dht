@@ -8,9 +8,11 @@ service ChordNode {
     rpc Join(NodeAddr) returns (NodeAddr) {} // Return found successor
     rpc FindSuccessor(NodeId) returns (FindFindSuccessorResp) {}
     rpc GetPredecessor(Empty) returns (NodeAddr) {} // Return found predecessor
+    rpc GetFirstSuccessor(Empty) returns (NodeAddr) {}
     rpc Notify(NodeAddr) returns (Empty) {} // Could consider adding a sequence number
     rpc GetFingers(Empty) returns (GetFingersResp) {}
     rpc HelpFind(NodeId) returns (NodeAddr) {}
+    rpc CheckAlive(Empty) returns (Empty) {}
     
     // rpc GetNodeInfo(NodeAddr) returns (NodeInfo) {} // Return full info of the node
     
