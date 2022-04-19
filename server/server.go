@@ -32,6 +32,17 @@ func (s *ChordNodeServer) Join(ctx context.Context, in *pb.NodeAddr) (*pb.NodeAd
 	}
 }
 
+func (s *ChordNodeServer) HelpFind(ctx context.Context, in *pb.NodeId) (*pb.NodeAddr, error) {
+	id := new(big.Int).SetBytes(in.GetId())
+
+	found, err := s.nodeService.Find(id)
+	if err != nil {
+		return new(pb.NodeAddr), err
+	} else {
+		return &pb.NodeAddr{Hash: found.Id.Bytes(), Addr: found.Addr}, nil
+	}
+}
+
 func (s *ChordNodeServer) FindSuccessor(ctx context.Context, in *pb.NodeId) (*pb.FindFindSuccessorResp, error) {
 
 	target := big.NewInt(0).SetBytes(in.GetId())
@@ -56,6 +67,13 @@ func (s *ChordNodeServer) GetPredecessor(ctx context.Context, empty *pb.Empty) (
 		log.Println("getpred error: ", err)
 		return nil, err
 	}
+}
+
+func (s *ChordNodeServer) GetFingers(ctx context.Context, empty *pb.Empty) (*pb.GetFingersResp, error) {
+	ids, addresses := s.nodeService.GetFingers()
+
+	return &pb.GetFingersResp{Ids: ids, Addrs: addresses}, nil
+
 }
 
 func (s *ChordNodeServer) MapGet(ctx context.Context, in *pb.Key) (*pb.KeyVal, error) {

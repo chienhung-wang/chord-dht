@@ -83,6 +83,48 @@ func RpcGetPredecessor(address string) (*NodeEntry, error) {
 	return predEntry, nil
 }
 
+func RpcHelpFind(address string, id *big.Int) (*NodeEntry, error) {
+	client, conn, ctx, cancel, err := connectTo(address)
+	defer conn.Close()
+	defer cancel()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	found, err := client.HelpFind(ctx, &pb.NodeId{Id: id.Bytes()})
+	if err != nil {
+		return nil, err
+	}
+
+	foundId := new(big.Int).SetBytes(found.GetHash())
+
+	return &NodeEntry{Id: foundId, Addr: found.Addr}, nil
+}
+
+func RpcGetFingers(address string) ([]*NodeEntry, error) {
+	client, conn, ctx, cancel, err := connectTo(address)
+	defer conn.Close()
+	defer cancel()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	table, err := client.GetFingers(ctx, &pb.Empty{Empty: true})
+	if err != nil {
+		return nil, err
+	}
+
+	fingers := make([]*NodeEntry, 161)
+	addresses := table.GetAddrs()
+
+	id_bytes := table.GetIds()
+	for i := 0; i < 161; i++ {
+		fingers[i] = &NodeEntry{Id: big.NewInt(0).SetBytes(id_bytes[i]), Addr: addresses[i]}
+	}
+
+	return fingers, nil
+}
+
 func RpcNotify(address string, src *NodeEntry) error {
 	client, conn, ctx, cancel, err := connectTo(address)
 	defer conn.Close()

@@ -30,3 +30,11 @@ func BetweenNoninclusive(begin *big.Int, mid *big.Int, end *big.Int) bool {
 		return mid.Cmp(begin) > 0 || mid.Cmp(end) < 0
 	}
 }
+
+func BetweenBeginInclusive(begin *big.Int, mid *big.Int, end *big.Int) bool {
+	if end.Cmp(begin) > 0 {
+		return mid.Cmp(begin) >= 0 && mid.Cmp(end) < 0
+	} else {
+		return mid.Cmp(begin) >= 0 || mid.Cmp(end) < 0
+	}
+}

@@ -9,12 +9,19 @@ service ChordNode {
     rpc FindSuccessor(NodeId) returns (FindFindSuccessorResp) {}
     rpc GetPredecessor(Empty) returns (NodeAddr) {} // Return found predecessor
     rpc Notify(NodeAddr) returns (Empty) {} // Could consider adding a sequence number
+    rpc GetFingers(Empty) returns (GetFingersResp) {}
+    rpc HelpFind(NodeId) returns (NodeAddr) {}
     
     // rpc GetNodeInfo(NodeAddr) returns (NodeInfo) {} // Return full info of the node
     
     rpc MapGet(Key) returns (KeyVal) {}
     rpc MapPut(KeyVal) returns (KeyVal) {}
     rpc MapDelete(Key) returns (Key) {}
+}
+
+message GetFingersResp {
+    repeated bytes ids = 1;
+    repeated string addrs = 2;
 }
 
 message KeyVal {

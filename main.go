@@ -56,6 +56,8 @@ func main() {
 
 	go node.Stabilize()
 
+	go node.FixFinger()
+
 	// node.Succ[0] = suc
 
 	log.Println("Node id ---> ", id)
@@ -77,7 +79,7 @@ func main() {
 				addr := texts[1]
 				if succ, err := chord.RpcJoin(addr, node.Addr, node.Id); err == nil {
 					fmt.Printf("found successor's id: %v, addr: %v\n --> JOIN\n", succ.Id, succ.Addr)
-					node.Succ[0] = succ
+					node.JoinTo(succ)
 				} else {
 					fmt.Println("Error: ", err)
 				}
@@ -91,6 +93,8 @@ func main() {
 				}
 
 			}
+		case "SELF":
+			fmt.Printf("Self:\nid: %v\nport: %v", node.Id, port)
 		case "MAP":
 			if len(texts) >= 1 {
 				fmt.Println("Local Hash Table -> \n", storageService.GetLocalTable())
@@ -102,6 +106,14 @@ func main() {
 		case "PRED":
 			if len(texts) >= 1 {
 				fmt.Println("Predescessor -> ", node.Pred)
+			}
+		case "FINGERS":
+			if len(texts) >= 1 {
+				ring := make([]string, 0)
+				for _, f := range node.Fingers {
+					ring = append(ring, f.Addr[10:])
+				}
+				fmt.Println("Fingers -> ", ring)
 			}
 		case "GET":
 			if len(texts) >= 2 {
