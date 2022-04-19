@@ -30,6 +30,7 @@ type ChordNodeClient interface {
 	GetFingers(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*GetFingersResp, error)
 	HelpFind(ctx context.Context, in *NodeId, opts ...grpc.CallOption) (*NodeAddr, error)
 	CheckAlive(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
+	KeyTransfer(ctx context.Context, in *KeyValueMap, opts ...grpc.CallOption) (*KeyTransferResp, error)
 	MapGet(ctx context.Context, in *Key, opts ...grpc.CallOption) (*KeyVal, error)
 	MapPut(ctx context.Context, in *KeyVal, opts ...grpc.CallOption) (*KeyVal, error)
 	MapDelete(ctx context.Context, in *Key, opts ...grpc.CallOption) (*Key, error)
@@ -115,6 +116,15 @@ func (c *chordNodeClient) CheckAlive(ctx context.Context, in *Empty, opts ...grp
 	return out, nil
 }
 
+func (c *chordNodeClient) KeyTransfer(ctx context.Context, in *KeyValueMap, opts ...grpc.CallOption) (*KeyTransferResp, error) {
+	out := new(KeyTransferResp)
+	err := c.cc.Invoke(ctx, "/chord_pb.ChordNode/KeyTransfer", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chordNodeClient) MapGet(ctx context.Context, in *Key, opts ...grpc.CallOption) (*KeyVal, error) {
 	out := new(KeyVal)
 	err := c.cc.Invoke(ctx, "/chord_pb.ChordNode/MapGet", in, out, opts...)
@@ -154,6 +164,7 @@ type ChordNodeServer interface {
 	GetFingers(context.Context, *Empty) (*GetFingersResp, error)
 	HelpFind(context.Context, *NodeId) (*NodeAddr, error)
 	CheckAlive(context.Context, *Empty) (*Empty, error)
+	KeyTransfer(context.Context, *KeyValueMap) (*KeyTransferResp, error)
 	MapGet(context.Context, *Key) (*KeyVal, error)
 	MapPut(context.Context, *KeyVal) (*KeyVal, error)
 	MapDelete(context.Context, *Key) (*Key, error)
@@ -187,6 +198,9 @@ func (UnimplementedChordNodeServer) HelpFind(context.Context, *NodeId) (*NodeAdd
 }
 func (UnimplementedChordNodeServer) CheckAlive(context.Context, *Empty) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckAlive not implemented")
+}
+func (UnimplementedChordNodeServer) KeyTransfer(context.Context, *KeyValueMap) (*KeyTransferResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method KeyTransfer not implemented")
 }
 func (UnimplementedChordNodeServer) MapGet(context.Context, *Key) (*KeyVal, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MapGet not implemented")
@@ -354,6 +368,24 @@ func _ChordNode_CheckAlive_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChordNode_KeyTransfer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyValueMap)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChordNodeServer).KeyTransfer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/chord_pb.ChordNode/KeyTransfer",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChordNodeServer).KeyTransfer(ctx, req.(*KeyValueMap))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChordNode_MapGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Key)
 	if err := dec(in); err != nil {
@@ -446,6 +478,10 @@ var ChordNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CheckAlive",
 			Handler:    _ChordNode_CheckAlive_Handler,
+		},
+		{
+			MethodName: "KeyTransfer",
+			Handler:    _ChordNode_KeyTransfer_Handler,
 		},
 		{
 			MethodName: "MapGet",

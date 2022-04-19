@@ -242,14 +242,32 @@ func (n *Node) Stabilize() {
 
 }
 
+func (n *Node) KeyTransfer(newPred *NodeEntry) map[string]string {
+	table := n.storageService.GetLocalTable()
+	res := make(map[string]string, 0)
+
+	for k := range table {
+		hash_val := util.Sha1_hash(k)
+		if util.Between(n.Pred.Id, hash_val, newPred.Id) {
+			res[k] = table[k]
+			delete(table, k)
+		}
+	}
+
+	return res
+
+}
+
 func (n *Node) Notify(caller *NodeEntry) {
 	if n.SuccList[0] == nil {
+		RpcKeyTransfer(caller.Addr, n.KeyTransfer(caller))
 		n.Pred = caller
 		n.SuccList[0] = caller
 		return
 	}
 	err := RpcCheckAlive(n.Pred.Addr)
 	if util.BetweenNoninclusive(n.Pred.Id, caller.Id, n.Id) || err != nil {
+		RpcKeyTransfer(caller.Addr, n.KeyTransfer(caller))
 		fmt.Println("new pred -> ", caller.Addr)
 		n.Pred = caller
 	}

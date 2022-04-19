@@ -174,6 +174,22 @@ func RpcNotify(address string, src *NodeEntry) error {
 	return nil
 }
 
+func RpcKeyTransfer(address string, table map[string]string) error {
+	client, conn, ctx, cancel, err := connectTo(address)
+	defer conn.Close()
+	defer cancel()
+	if err != nil {
+		return err
+	}
+
+	_, err = client.KeyTransfer(ctx, &pb.KeyValueMap{Data: table})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (n *Node) Get(key string) (string, string, error) {
 	loc, err := n.GetKeyLocation(key)
 	if err != nil {

@@ -13,8 +13,7 @@ service ChordNode {
     rpc GetFingers(Empty) returns (GetFingersResp) {}
     rpc HelpFind(NodeId) returns (NodeAddr) {}
     rpc CheckAlive(Empty) returns (Empty) {}
-    
-    // rpc GetNodeInfo(NodeAddr) returns (NodeInfo) {} // Return full info of the node
+    rpc KeyTransfer(KeyValueMap) returns (KeyTransferResp) {}
     
     rpc MapGet(Key) returns (KeyVal) {}
     rpc MapPut(KeyVal) returns (KeyVal) {}
@@ -24,6 +23,14 @@ service ChordNode {
 message GetFingersResp {
     repeated bytes ids = 1;
     repeated string addrs = 2;
+}
+
+message KeyValueMap {
+    map<string, string> data = 1;
+}
+
+message KeyTransferResp {
+    bool received = 1;
 }
 
 message KeyVal {

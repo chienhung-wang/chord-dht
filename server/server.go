@@ -89,7 +89,14 @@ func (s *ChordNodeServer) GetFingers(ctx context.Context, empty *pb.Empty) (*pb.
 	ids, addresses := s.nodeService.GetFingers()
 
 	return &pb.GetFingersResp{Ids: ids, Addrs: addresses}, nil
+}
 
+func (s *ChordNodeServer) KeyTransfer(ctx context.Context, data *pb.KeyValueMap) (*pb.KeyTransferResp, error) {
+	for k, v := range data.GetData() {
+		s.storageService.Put(k, v)
+	}
+
+	return &pb.KeyTransferResp{Received: true}, nil
 }
 
 func (s *ChordNodeServer) MapGet(ctx context.Context, in *pb.Key) (*pb.KeyVal, error) {

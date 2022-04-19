@@ -12,21 +12,21 @@ type StorageService interface {
 }
 
 type hashTable struct {
-	table map[string]string
+	Table map[string]string
 }
 
 func NewStorageService() StorageService {
 	return &hashTable{
-		table: make(map[string]string),
+		Table: make(map[string]string),
 	}
 }
 
 func (kv *hashTable) GetLocalTable() map[string]string {
-	return kv.table
+	return kv.Table
 }
 
 func (kv *hashTable) Get(key string) (string, error) {
-	if val, ok := kv.table[key]; ok {
+	if val, ok := kv.Table[key]; ok {
 		return val, nil
 	} else {
 		return "", errors.New("key not found")
@@ -34,13 +34,13 @@ func (kv *hashTable) Get(key string) (string, error) {
 }
 
 func (kv *hashTable) Put(key string, val string) error {
-	kv.table[key] = val
+	kv.Table[key] = val
 	return nil
 }
 
 func (kv *hashTable) Delete(key string) error {
-	if _, ok := kv.table[key]; ok {
-		delete(kv.table, key)
+	if _, ok := kv.Table[key]; ok {
+		delete(kv.Table, key)
 		return nil
 	} else {
 		return errors.New("key not found")
