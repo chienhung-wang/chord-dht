@@ -129,6 +129,9 @@ func (n *Node) JoinTo(succ *NodeEntry) error {
 	if err != nil {
 		return err
 	}
+
+	go n.FixFinger()
+
 	return nil
 }
 
@@ -136,19 +139,8 @@ func (n *Node) InitFingers(fingers []*NodeEntry) error {
 	m := 160
 	fmt.Println(n.Fingers)
 	for i := 1; i <= m-1; i++ {
-		if util.Between(n.Id, n.FingersStarts[i+1], n.Fingers[i].Id) {
+		if util.BetweenBeginInclusive(n.Id, n.FingersStarts[i+1], n.Fingers[i].Id) {
 			n.Fingers[i+1] = n.Fingers[i]
-			// fmt.Printf("same ")
-			// fmt.Println("Between: ", util.BetweenBeginInclusive(n.Id, n.FingersStarts[i+1], n.Fingers[i].Id))
-			fmt.Println(n.Id)
-			fmt.Println(n.FingersStarts[i+1])
-			fmt.Println(n.Fingers[i].Id)
-			fmt.Println()
-
-			// fmt.Printf("%v\n", n.FingersStarts[i+1].Cmp(n.Fingers[i].Id) <= 0)
-
-			// n.Fingers[i+1].Id = n.Fingers[i].Id
-			// n.Fingers[i+1].Addr = n.Fingers[i].Addr
 		} else {
 			var found bool
 			var next = n.Succ[0]
@@ -256,15 +248,29 @@ func (n *Node) FindSucessor(target *big.Int) (bool, *NodeEntry) {
 		return true, &NodeEntry{Id: n.Id, Addr: n.Addr}
 	}
 
-	// log.Printf("compare 3 values --> \n%v\n%v\n%v\n", n.Id, target, n.Succ[0].Id)
-
 	if util.Between(n.Id, target, n.Succ[0].Id) {
 		return true, n.Succ[0]
+	}
+
+	if closest := n.ClosestProcedingFinger(target); closest != nil {
+		return false, closest
 	}
 
 	// TODO: Check fingertable
 
 	return false, n.Succ[0]
+}
+
+func (n *Node) ClosestProcedingFinger(target *big.Int) *NodeEntry {
+	m := 160
+
+	for i := m; i >= 1; i-- {
+		if util.BetweenNoninclusive(n.Id, n.Fingers[i].Id, target) {
+			return n.Fingers[i]
+		}
+	}
+
+	return nil
 }
 
 func (n *Node) GetPredecessor() (*NodeEntry, error) {
