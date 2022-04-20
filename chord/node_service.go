@@ -258,6 +258,14 @@ func (n *Node) KeyTransfer(newPred *NodeEntry) map[string]string {
 
 }
 
+func (n *Node) VoluntarilyLeavingKeyTransfer() error {
+	err := RpcKeyTransfer(n.GetAliveSuccessor().Addr, n.storageService.GetLocalTable())
+	if err != nil {
+		return fmt.Errorf("volauntarily leave error: %v", err)
+	}
+	return nil
+}
+
 func (n *Node) Notify(caller *NodeEntry) {
 	if n.SuccList[0] == nil {
 		RpcKeyTransfer(caller.Addr, n.KeyTransfer(caller))

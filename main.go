@@ -148,6 +148,12 @@ func main() {
 					fmt.Println("Error: ", err)
 				}
 			}
+		case "KILL":
+			err := node.VoluntarilyLeavingKeyTransfer()
+			if err != nil {
+				fmt.Println(err)
+			}
+			os.Exit(0)
 		}
 
 	}
