@@ -19,9 +19,9 @@ import (
 var wg sync.WaitGroup
 
 func TestChordNetwork(t *testing.T) {
-	const targetNumNode = 3
+	const targetNumNode = 10
 	const targetNumKey = 100
-	const targetNumGet = 100
+	const targetNumGet = 1000
 	port := 60445
 	wg.Add(targetNumNode)
 
@@ -44,8 +44,8 @@ func TestChordNetwork(t *testing.T) {
 		chans[i] <- "JOIN localhost:" + strconv.Itoa(port)
 	}
 
-	// wait 5s for stabilize
-	time.Sleep(5 * time.Second)
+	// wait for stabilize
+	time.Sleep(targetNumNode * 1.3 * time.Second)
 	start := time.Now()
 
 	// add key-value pairs
