@@ -27,6 +27,7 @@ type Node struct {
 	FingersEnds    [161]*big.Int
 	storageService StorageService
 	Broken         bool
+	IsNaive        bool
 }
 
 type NodeEntry struct {
@@ -75,6 +76,7 @@ func NewNode(addr string, storageService StorageService) *Node {
 		FingersStarts:  fingerStarts,
 		storageService: storageService,
 		Broken:         false,
+		IsNaive:        false,
 	}
 }
 
@@ -335,16 +337,12 @@ func (n *Node) FindSucessor(target *big.Int) (bool, *NodeEntry) {
 	}
 
 	succ := n.SuccList[0]
-	// succ := n.GetAliveSuccessor()
-	// if succ == nil {
-	// 	return false, &NodeEntry{Id: n.Id, Addr: n.Addr}
-	// }
 
 	if util.Between(n.Id, target, succ.Id) {
 		return true, n.SuccList[0]
 	}
 
-	if !n.Broken {
+	if !n.Broken && !n.IsNaive {
 		if closest := n.ClosestProcedingFinger(target); closest != nil {
 			return false, closest
 		}

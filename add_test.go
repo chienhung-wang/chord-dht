@@ -23,6 +23,7 @@ func TestChordNetwork(t *testing.T) {
 	const targetNumNode = 10
 	const targetNumKey = 1000
 	const targetNumGet = 1000
+	const isNaive = true
 	port := 60445
 	wg.Add(targetNumNode)
 
@@ -38,7 +39,7 @@ func TestChordNetwork(t *testing.T) {
 
 	// start goroutine for nodes
 	for i := 0; i < targetNumNode; i++ {
-		go chordNetWork(strconv.Itoa(port+i), chans[i], taskChan, ackChan)
+		go chordNetWork(isNaive, strconv.Itoa(port+i), chans[i], taskChan, ackChan)
 		if <-chans[i] == "fail" {
 			continue
 		}
@@ -81,18 +82,19 @@ func TestChordNetwork(t *testing.T) {
 
 }
 
-func chordNetWork(port string, ch chan string, taskChan chan string, ackChan chan string) {
+func chordNetWork(isNaive bool, port string, ch chan string, taskChan chan string, ackChan chan string) {
 	defer wg.Done()
 	host_port := "localhost:" + port
 
 	storageService := chord.NewStorageService()
 	node := chord.NewNode(host_port, storageService)
+	node.IsNaive = isNaive
 	id := node.Id
 
 	lis, err := net.Listen("tcp", host_port)
 	if err != nil {
 		ch <- "fail"
-		log.Fatalln("Failed to listen to port", host_port)
+		log.Fatalln("Failed toc listen to port", host_port)
 	}
 	ch <- "success"
 	log.Println("Server listening at " + lis.Addr().String())
