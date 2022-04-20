@@ -101,7 +101,7 @@ func (n *Node) FixFinger() {
 		} else {
 			n.Fingers[idx] = found
 		}
-		time.Sleep(time.Millisecond * 80)
+		time.Sleep(time.Millisecond * 30)
 	}
 }
 
