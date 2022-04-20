@@ -20,7 +20,7 @@ func connectTo(address string) (pb.ChordNodeClient, *grpc.ClientConn, context.Co
 
 	c := pb.NewChordNodeClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 
 	return c, conn, ctx, cancel, err
 }
