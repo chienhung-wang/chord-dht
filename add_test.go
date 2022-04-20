@@ -20,8 +20,8 @@ var wg sync.WaitGroup
 
 func TestChordNetwork(t *testing.T) {
 	const targetNumNode = 10
-	const targetNumKey = 100
-	const targetNumGet = 1000
+	const targetNumKey = 1000
+	const targetNumGet = 1200
 	port := 60445
 	wg.Add(targetNumNode)
 
@@ -45,7 +45,7 @@ func TestChordNetwork(t *testing.T) {
 	}
 
 	// wait for stabilize
-	time.Sleep(targetNumNode * 1.3 * time.Second)
+	time.Sleep(targetNumNode * 2 * time.Second)
 	start := time.Now()
 
 	// add key-value pairs
