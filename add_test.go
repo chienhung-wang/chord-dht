@@ -1,39 +1,88 @@
 package main
 
 import (
-	"bufio"
 	"chord-dht/chord"
 	pb "chord-dht/chord_pb"
 	rpc "chord-dht/server"
 	"fmt"
-	"log"
-	"net"
-	"os"
-	"strings"
-
 	"google.golang.org/grpc"
+	"log"
+	"math/rand"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
 )
 
-func startServer(s *grpc.Server, lis net.Listener) error {
-	err := s.Serve(lis)
-	if err != nil {
-		return err
+var wg sync.WaitGroup
+
+func TestChordNetwork(t *testing.T) {
+	const targetNumNode = 3
+	const targetNumKey = 100
+	const targetNumGet = 100
+	port := 60445
+	wg.Add(targetNumNode)
+
+	// define chan
+	var chans [targetNumNode]chan string
+	for i := range chans {
+		chans[i] = make(chan string)
+	}
+	var taskChan chan string
+	var ackChan chan string
+	taskChan = make(chan string, 4096)
+	ackChan = make(chan string, 4096)
+
+	// start goroutine for nodes
+	for i := 0; i < targetNumNode; i++ {
+		go chordNetWork(strconv.Itoa(port+i), chans[i], taskChan, ackChan)
+		if <-chans[i] == "fail" {
+			continue
+		}
+		chans[i] <- "JOIN localhost:" + strconv.Itoa(port)
 	}
 
-	return nil
+	// wait 5s for stabilize
+	time.Sleep(5 * time.Second)
+	start := time.Now()
+
+	// add key-value pairs
+	for i := 0; i < targetNumKey; i++ {
+		taskChan <- "PUT " + strconv.Itoa(i) + " " + strconv.Itoa(i)
+	}
+	for i := 0; i < targetNumKey; i++ {
+		<-ackChan
+	}
+	add := time.Now()
+
+	// get
+	for i := 0; i < targetNumGet; i++ {
+		key := rand.Intn(targetNumKey)
+		taskChan <- "GET " + strconv.Itoa(key)
+	}
+	for i := 0; i < targetNumGet; i++ {
+		<-ackChan
+	}
+	get := time.Now()
+
+	// shut down
+	for i := 0; i < targetNumNode; i++ {
+		taskChan <- "END"
+	}
+
+	wg.Wait()
+
+	fmt.Printf("Total time to finish test: %s \n", time.Since(start).String())
+	fmt.Printf("Total time to put : %s \n", add.Sub(start))
+	fmt.Printf("Total time to get : %s \n", get.Sub(add))
+
 }
 
-func getAddr() (port string, host_port string) {
-	host := os.Args[1]
-	port = os.Args[2]
-	host_port = host + ":" + port
-	return
-}
-
-func main() {
-	fmt.Println("Hello Chord")
-
-	port, host_port := getAddr()
+func chordNetWork(port string, ch chan string, taskChan chan string, ackChan chan string) {
+	defer wg.Done()
+	host_port := "localhost:" + port
 
 	storageService := chord.NewStorageService()
 	node := chord.NewNode(host_port, storageService)
@@ -41,8 +90,10 @@ func main() {
 
 	lis, err := net.Listen("tcp", host_port)
 	if err != nil {
-		log.Fatalln("Failed to listen to port", port)
+		ch <- "fail"
+		log.Fatalln("Failed to listen to port", host_port)
 	}
+	ch <- "success"
 	log.Println("Server listening at " + lis.Addr().String())
 
 	s := grpc.NewServer()
@@ -61,15 +112,12 @@ func main() {
 	go node.FixFinger()
 
 	log.Println("Node id ---> ", id)
-
 	log.Println("Start getting input...")
 
-	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		fmt.Print("> ")
-		scanner.Scan()
-		input := scanner.Text()
+	input := <-ch
 
+	for {
+		log.Println(" **** node " + port + " get input: " + input + "*****")
 		texts := strings.Split(input, " ")
 		cmd := texts[0]
 
@@ -91,7 +139,6 @@ func main() {
 				} else {
 					fmt.Println("Successor -> ", node.SuccList[0])
 				}
-
 			}
 		case "SELF":
 			fmt.Printf("Self:\nid: %v\nport: %v\n", node.Id, port)
@@ -103,6 +150,7 @@ func main() {
 			if len(texts) >= 1 {
 				node.Stabilize()
 			}
+			ackChan <- "stabilize finish"
 		case "PRED":
 			if len(texts) >= 1 {
 				fmt.Println("Predescessor -> ", node.Pred)
@@ -116,19 +164,20 @@ func main() {
 				fmt.Println("Fingers -> ", ring)
 			}
 		case "SUCCLIST":
-			println("SuccList -> ")
+			log.Println("SuccList -> ")
 			for _, suc := range node.SuccList {
 				if suc == nil {
 					break
 				}
 				fmt.Printf(" -> %v ", suc.Addr[10:])
 			}
-			println()
 		case "GET":
 			if len(texts) >= 2 {
 				if key, val, err := node.Get(texts[1]); err == nil {
-					fmt.Printf("{Key: %v, Val: %v} -> GET\n", key, val)
+					s := fmt.Sprintf("{Key: %v, Val: %v} -> GET\n", key, val)
+					ackChan <- s
 				} else {
+					ackChan <- "fail"
 					fmt.Println("Error: ", err)
 				}
 			}
@@ -136,7 +185,9 @@ func main() {
 			if len(texts) >= 3 {
 				if key, val, err := node.Put(texts[1], texts[2]); err == nil {
 					fmt.Printf("{Key: %v, Val: %v} -> PUT\n", key, val)
+					ackChan <- "put finish"
 				} else {
+					ackChan <- "fail"
 					fmt.Println("Error: ", err)
 				}
 			}
@@ -148,6 +199,10 @@ func main() {
 					fmt.Println("Error: ", err)
 				}
 			}
+		case "END":
+			return
 		}
+		input = <-taskChan
+
 	}
 }
