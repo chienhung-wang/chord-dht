@@ -5,7 +5,6 @@ import (
 	pb "chord-dht/chord_pb"
 	rpc "chord-dht/server"
 	"fmt"
-	"google.golang.org/grpc"
 	"log"
 	"math/rand"
 	"net"
@@ -14,6 +13,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc"
 )
 
 var wg sync.WaitGroup
@@ -21,7 +22,7 @@ var wg sync.WaitGroup
 func TestChordNetwork(t *testing.T) {
 	const targetNumNode = 10
 	const targetNumKey = 1000
-	const targetNumGet = 1200
+	const targetNumGet = 1000
 	port := 60445
 	wg.Add(targetNumNode)
 

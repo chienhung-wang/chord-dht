@@ -219,10 +219,22 @@ func (n *Node) GetAliveSuccessor() *NodeEntry {
 
 func (n *Node) Stabilize() {
 	for {
-		if succ := n.GetAliveSuccessor(); succ != nil {
+		succ := n.SuccList[0]
+		if succ != nil {
 			succ_pred, err := RpcGetPredecessor(succ.Addr)
 			if err != nil {
-				fmt.Errorf("stabilization error: %v", err)
+				n.Broken = true
+				n.SuccList = n.SuccList[1:]
+				if n.SuccList[0] != nil {
+					for j := 1; j <= 160; j++ {
+						if util.Between(n.Id, n.Fingers[j].Id, n.SuccList[0].Id) {
+							n.Fingers[j] = n.SuccList[0]
+						}
+					}
+				}
+				n.Broken = false
+				n.SuccList = append(n.SuccList, nil)
+				continue
 			}
 			if succ_pred.Id.Cmp(n.Id) != 0 {
 				if util.BetweenNoninclusive(n.Id, succ_pred.Id, succ.Id) {
@@ -237,7 +249,7 @@ func (n *Node) Stabilize() {
 
 		}
 
-		time.Sleep(time.Second)
+		time.Sleep(time.Millisecond * 300)
 	}
 
 }
@@ -321,10 +333,12 @@ func (n *Node) FindSucessor(target *big.Int) (bool, *NodeEntry) {
 	if n.SuccList[0] == nil {
 		return true, &NodeEntry{Id: n.Id, Addr: n.Addr}
 	}
-	succ := n.GetAliveSuccessor()
-	if succ == nil {
-		return false, &NodeEntry{Id: n.Id, Addr: n.Addr}
-	}
+
+	succ := n.SuccList[0]
+	// succ := n.GetAliveSuccessor()
+	// if succ == nil {
+	// 	return false, &NodeEntry{Id: n.Id, Addr: n.Addr}
+	// }
 
 	if util.Between(n.Id, target, succ.Id) {
 		return true, n.SuccList[0]
