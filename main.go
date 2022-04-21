@@ -60,6 +60,8 @@ func main() {
 
 	go node.FixFinger()
 
+	go node.FixExtendedFingers()
+
 	log.Println("Node id ---> ", id)
 
 	log.Println("Start getting input...")
@@ -148,6 +150,15 @@ func main() {
 					fmt.Println("Error: ", err)
 				}
 			}
+		case "EXTENDED":
+			fmt.Printf("Extended fingers: \n")
+			for i := 1; i <= 3; i++ {
+				if node.ExtendedFinger[i] == nil {
+					fmt.Printf("nil, ")
+				}
+				fmt.Printf("%v, ", node.ExtendedFinger[i].Addr)
+			}
+			fmt.Println()
 		case "KILL":
 			err := node.VoluntarilyLeavingKeyTransfer()
 			if err != nil {

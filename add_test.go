@@ -20,10 +20,11 @@ import (
 var wg sync.WaitGroup
 
 func TestChordNetwork(t *testing.T) {
-	const targetNumNode = 10
-	const targetNumKey = 1000
-	const targetNumGet = 1000
-	const isNaive = true
+	const targetNumNode = 30
+	const targetNumKey = 100
+	const targetNumGet = 100
+	const isNaive = false
+	const extended = true
 	port := 60445
 	wg.Add(targetNumNode)
 
@@ -39,7 +40,7 @@ func TestChordNetwork(t *testing.T) {
 
 	// start goroutine for nodes
 	for i := 0; i < targetNumNode; i++ {
-		go chordNetWork(isNaive, strconv.Itoa(port+i), chans[i], taskChan, ackChan)
+		go chordNetWork(extended, isNaive, strconv.Itoa(port+i), chans[i], taskChan, ackChan)
 		if <-chans[i] == "fail" {
 			continue
 		}
@@ -82,13 +83,14 @@ func TestChordNetwork(t *testing.T) {
 
 }
 
-func chordNetWork(isNaive bool, port string, ch chan string, taskChan chan string, ackChan chan string) {
+func chordNetWork(extended bool, isNaive bool, port string, ch chan string, taskChan chan string, ackChan chan string) {
 	defer wg.Done()
-	host_port := "localhost:" + port
+	host_port := ":" + port
 
 	storageService := chord.NewStorageService()
 	node := chord.NewNode(host_port, storageService)
 	node.IsNaive = isNaive
+	node.Extended = extended
 	id := node.Id
 
 	lis, err := net.Listen("tcp", host_port)
@@ -113,6 +115,10 @@ func chordNetWork(isNaive bool, port string, ch chan string, taskChan chan strin
 	go node.UpdateBackupSuccessors()
 
 	go node.FixFinger()
+
+	if node.Extended {
+		go node.FixExtendedFingers()
+	}
 
 	log.Println("Node id ---> ", id)
 	log.Println("Start getting input...")
@@ -203,6 +209,15 @@ func chordNetWork(isNaive bool, port string, ch chan string, taskChan chan strin
 				}
 			}
 		case "END":
+			// fmt.Printf("Extended fingers: \n")
+			// for i := 1; i <= 3; i++ {
+			// 	if node.ExtendedFinger[i] == nil {
+			// 		fmt.Printf("nil, ")
+			// 		continue
+			// 	}
+			// 	fmt.Printf("%v, ", node.ExtendedFinger[i].Addr)
+			// }
+			// fmt.Println()
 			return
 		}
 		input = <-taskChan
