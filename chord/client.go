@@ -14,13 +14,14 @@ import (
 func connectTo(address string) (pb.ChordNodeClient, *grpc.ClientConn, context.Context, context.CancelFunc, error) {
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	// log.Println("Connected to server...", address)
+	time.Sleep(time.Microsecond * 300)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	c := pb.NewChordNodeClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 
 	return c, conn, ctx, cancel, err
 }

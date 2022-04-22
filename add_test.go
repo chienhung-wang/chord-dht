@@ -6,13 +6,11 @@ import (
 	rpc "chord-dht/server"
 	"fmt"
 	"log"
-	"math/rand"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"google.golang.org/grpc"
 )
@@ -21,8 +19,8 @@ var wg sync.WaitGroup
 
 func TestChordNetwork(t *testing.T) {
 	const targetNumNode = 30
-	const targetNumKey = 100
-	const targetNumGet = 100
+	// const targetNumKey = 100
+	// const targetNumGet = 100
 	const isNaive = false
 	const extended = true
 	port := 60445
@@ -47,45 +45,49 @@ func TestChordNetwork(t *testing.T) {
 		chans[i] <- "JOIN localhost:" + strconv.Itoa(port)
 	}
 
-	// wait for stabilize
-	time.Sleep(targetNumNode * 2 * time.Second)
-	start := time.Now()
+	// // wait for stabilize
+	// time.Sleep(targetNumNode * 2 * time.Second)
+	// start := time.Now()
 
-	// add key-value pairs
-	for i := 0; i < targetNumKey; i++ {
-		taskChan <- "PUT " + strconv.Itoa(i) + " " + strconv.Itoa(i)
-	}
-	for i := 0; i < targetNumKey; i++ {
-		<-ackChan
-	}
-	add := time.Now()
+	// // add key-value pairs
+	// for i := 0; i < targetNumKey; i++ {
+	// 	taskChan <- "PUT " + strconv.Itoa(i) + " " + strconv.Itoa(i)
+	// }
+	// for i := 0; i < targetNumKey; i++ {
+	// 	<-ackChan
+	// }
+	// add := time.Now()
 
-	// get
-	for i := 0; i < targetNumGet; i++ {
-		key := rand.Intn(targetNumKey)
-		taskChan <- "GET " + strconv.Itoa(key)
-	}
-	for i := 0; i < targetNumGet; i++ {
-		<-ackChan
-	}
-	get := time.Now()
+	// // get
+	// for i := 0; i < targetNumGet; i++ {
+	// 	key := rand.Intn(targetNumKey)
+	// 	taskChan <- "GET " + strconv.Itoa(key)
+	// }
+	// for i := 0; i < targetNumGet; i++ {
+	// 	<-ackChan
+	// }
+	// get := time.Now()
 
-	// shut down
-	for i := 0; i < targetNumNode; i++ {
-		taskChan <- "END"
+	// // shut down
+	// for i := 0; i < targetNumNode; i++ {
+	// 	taskChan <- "END"
+	// }
+
+	// wg.Wait()
+
+	// fmt.Printf("Total time to finish test: %s \n", time.Since(start).String())
+	// fmt.Printf("Total time to put : %s \n", add.Sub(start))
+	// fmt.Printf("Total time to get : %s \n", get.Sub(add))
+
+	for {
+
 	}
-
-	wg.Wait()
-
-	fmt.Printf("Total time to finish test: %s \n", time.Since(start).String())
-	fmt.Printf("Total time to put : %s \n", add.Sub(start))
-	fmt.Printf("Total time to get : %s \n", get.Sub(add))
 
 }
 
 func chordNetWork(extended bool, isNaive bool, port string, ch chan string, taskChan chan string, ackChan chan string) {
 	defer wg.Done()
-	host_port := ":" + port
+	host_port := "127.0.0.1:" + port
 
 	storageService := chord.NewStorageService()
 	node := chord.NewNode(host_port, storageService)

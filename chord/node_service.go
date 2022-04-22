@@ -26,7 +26,8 @@ type Node struct {
 	FingersStarts        [161]*big.Int
 	FingersEnds          [161]*big.Int
 	ExtendedFinger       []*NodeEntry
-	ExtendedFingerStarts [4]*big.Int
+	ExtendedFingerStarts []*big.Int
+	ExtendedFingersSize  int
 	storageService       StorageService
 	Broken               bool
 	IsNaive              bool
@@ -44,8 +45,8 @@ func NewNode(addr string, storageService StorageService) *Node {
 	fingerEnds := [161]*big.Int{}
 	id := util.Sha1_hash(addr)
 	selfNodeEntry := &NodeEntry{Id: id, Addr: addr}
-	extendedFingerSize := 3
-	extendFingerStarts := [4]*big.Int{}
+	extendedFingerSize := 2
+	extendFingerStarts := make([]*big.Int, extendedFingerSize+1)
 
 	for i := range fingers {
 		fingers[i] = selfNodeEntry
@@ -88,8 +89,9 @@ func NewNode(addr string, storageService StorageService) *Node {
 		Fingers:              fingers,
 		FingersEnds:          fingerEnds,
 		FingersStarts:        fingerStarts,
-		ExtendedFinger:       make([]*NodeEntry, 4),
+		ExtendedFinger:       make([]*NodeEntry, extendedFingerSize+1),
 		ExtendedFingerStarts: extendFingerStarts,
+		ExtendedFingersSize:  extendedFingerSize,
 		storageService:       storageService,
 		Broken:               false,
 		IsNaive:              false,
@@ -112,7 +114,8 @@ func (n *Node) FixExtendedFingers() {
 	rand.Seed(time.Now().UnixNano())
 
 	for {
-		idx := rand.Intn(4-1) + 1
+		// idx := rand.Intn(n.ExtendedFingersSize) +
+		idx := n.ExtendedFingersSize
 		found, err := n.find(n.ExtendedFingerStarts[idx])
 		if err != nil {
 			// log.Println("fix extended finger: no successor found", found)
@@ -120,7 +123,7 @@ func (n *Node) FixExtendedFingers() {
 		} else {
 			n.ExtendedFinger[idx] = found
 		}
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 300)
 	}
 
 }
@@ -411,11 +414,12 @@ func (n *Node) ClosestProcedingFinger(target *big.Int) *NodeEntry {
 	m := 160
 
 	if n.Extended && target.Cmp(n.FingersEnds[160]) > 0 {
-		for i := 3; i >= 1; i-- {
+		for i := n.ExtendedFingersSize; i >= 1; i-- {
 			if n.ExtendedFinger[i] == nil {
 				continue
 			}
 			if util.BetweenNoninclusive(n.Id, n.ExtendedFinger[i].Id, target) {
+				fmt.Println("extended finger used ")
 				return n.ExtendedFinger[i]
 			}
 		}

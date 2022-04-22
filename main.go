@@ -9,7 +9,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -24,9 +26,9 @@ func startServer(s *grpc.Server, lis net.Listener) error {
 }
 
 func getAddr() (port string, host_port string) {
-	host := os.Args[1]
+	// host := os.Args[1]
 	port = os.Args[2]
-	host_port = host + ":" + port
+	host_port = "127.0.0.1:" + port
 	return
 }
 
@@ -123,7 +125,7 @@ func main() {
 				if suc == nil {
 					break
 				}
-				fmt.Printf(" -> %v ", suc.Addr[10:])
+				fmt.Printf(" -> %v ", suc.Addr)
 			}
 			println()
 		case "GET":
@@ -159,6 +161,35 @@ func main() {
 				fmt.Printf("%v, ", node.ExtendedFinger[i].Addr)
 			}
 			fmt.Println()
+		case "TEST":
+			rounds, err := strconv.Atoi(texts[1])
+			if err != nil {
+				fmt.Println(err)
+			}
+			if len(texts) >= 2 {
+				start := time.Now()
+				for i := 0; i < rounds; i++ {
+					_, _, err := node.Put(strconv.Itoa(i), strconv.Itoa(i+1))
+					time.Sleep(time.Millisecond * 3)
+					if err != nil {
+						fmt.Println("PUT Err: ", err)
+					}
+				}
+				add := time.Now()
+				for i := 0; i < rounds; i++ {
+					_, _, err := node.Get(strconv.Itoa(i))
+					time.Sleep(time.Millisecond * 3)
+					if err != nil {
+						fmt.Println("GET Err: ", err)
+					} else {
+						// fmt.Printf("%v --> %v\n", k, v)
+					}
+				}
+				get := time.Now()
+				fmt.Printf("Total time to finish test: %s \n", time.Since(start).String())
+				fmt.Printf("Total time to put : %s \n", add.Sub(start))
+				fmt.Printf("Total time to get : %s \n", get.Sub(add))
+			}
 		case "KILL":
 			err := node.VoluntarilyLeavingKeyTransfer()
 			if err != nil {
