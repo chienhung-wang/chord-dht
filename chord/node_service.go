@@ -17,20 +17,24 @@ type NodeService interface {
 }
 
 type Node struct {
-	Id             *big.Int
-	Addr           string
-	Pred           *NodeEntry
-	Succ           *NodeEntry
-	SuccList       []*NodeEntry // Successor list
-	Fingers        [161]*NodeEntry
-	FingersStarts  [161]*big.Int
-	FingersEnds    [161]*big.Int
-	storageService StorageService
-	Rvn            *NodeEntry
-	Hops           int
-	Broken         bool
-	IsNaive        bool
-	Cache          bool
+	Id                   *big.Int
+	Addr                 string
+	Pred                 *NodeEntry
+	Succ                 *NodeEntry
+	SuccList             []*NodeEntry // Successor list
+	Fingers              [161]*NodeEntry
+	FingersStarts        [161]*big.Int
+	FingersEnds          [161]*big.Int
+	ExtendedFinger       []*NodeEntry
+	ExtendedFingerStarts []*big.Int
+	ExtendedFingersSize  int
+	Extended             bool
+	storageService       StorageService
+	Rvn                  *NodeEntry
+	Hops                 int
+	Broken               bool
+	IsNaive              bool
+	Cache                bool
 }
 
 type NodeEntry struct {
@@ -44,6 +48,8 @@ func NewNode(addr string, storageService StorageService) *Node {
 	fingerEnds := [161]*big.Int{}
 	id := util.Sha1_hash(addr)
 	selfNodeEntry := &NodeEntry{Id: id, Addr: addr}
+	extendedFingerSize := 3
+	extendFingerStarts := make([]*big.Int, extendedFingerSize+1)
 
 	for i := range fingers {
 		fingers[i] = selfNodeEntry
@@ -69,20 +75,32 @@ func NewNode(addr string, storageService StorageService) *Node {
 
 	}
 
+	halfRingSize := new(big.Int).Sub((new(big.Int).Div(modVal, two)), one)
+	intervalSize := new(big.Int).Div(halfRingSize, big.NewInt(int64(extendedFingerSize+1)))
+
+	extendFingerStarts[0] = new(big.Int).Mod(new(big.Int).Add(fingerEnds[160], one), modVal)
+	for i := 1; i <= extendedFingerSize; i++ {
+		extendFingerStarts[i] = new(big.Int).Mod(new(big.Int).Add(extendFingerStarts[i-1], intervalSize), modVal)
+	}
+
 	return &Node{
-		Id:             id,
-		Addr:           addr,
-		Pred:           selfNodeEntry,
-		SuccList:       make([]*NodeEntry, 3),
-		Fingers:        fingers,
-		FingersEnds:    fingerEnds,
-		FingersStarts:  fingerStarts,
-		storageService: storageService,
-		Hops:           0,
-		Rvn:            nil,
-		Broken:         false,
-		IsNaive:        false,
-		Cache:          false,
+		Id:                   id,
+		Addr:                 addr,
+		Pred:                 selfNodeEntry,
+		SuccList:             make([]*NodeEntry, 3),
+		Fingers:              fingers,
+		FingersEnds:          fingerEnds,
+		FingersStarts:        fingerStarts,
+		storageService:       storageService,
+		ExtendedFinger:       make([]*NodeEntry, extendedFingerSize+1),
+		ExtendedFingerStarts: extendFingerStarts,
+		ExtendedFingersSize:  extendedFingerSize,
+		Hops:                 0,
+		Rvn:                  nil,
+		Broken:               false,
+		IsNaive:              false,
+		Cache:                false,
+		Extended:             false,
 	}
 }
 
@@ -97,6 +115,24 @@ func (n *Node) Join(id *big.Int, addr string) (*NodeEntry, error) {
 	return found, nil
 }
 
+func (n *Node) FixExtendedFingers() {
+	rand.Seed(time.Now().UnixNano())
+
+	for {
+		idx := rand.Intn(n.ExtendedFingersSize) + 1
+		// idx := n.ExtendedFingersSize
+		found, _, err := n.find(n.ExtendedFingerStarts[idx], -1)
+		if err != nil {
+			// log.Println("fix extended finger: no successor found", found)
+			n.ExtendedFinger[idx] = nil
+		} else {
+			n.ExtendedFinger[idx] = found
+		}
+		time.Sleep(time.Millisecond * 200)
+	}
+
+}
+
 func (n *Node) FixFinger() {
 	rand.Seed(time.Now().UnixNano())
 
@@ -109,7 +145,7 @@ func (n *Node) FixFinger() {
 		} else {
 			n.Fingers[idx] = found
 		}
-		time.Sleep(time.Millisecond * 60)
+		time.Sleep(time.Millisecond * 80)
 	}
 }
 
@@ -375,8 +411,25 @@ func (n *Node) FindSucessor(target *big.Int, query int) (bool, *NodeEntry, int) 
 }
 
 func (n *Node) ClosestProcedingFinger(target *big.Int) *NodeEntry {
-	m := 160
 
+	if n.Extended && target.Cmp(n.FingersEnds[160]) > 0 {
+		for i := n.ExtendedFingersSize; i >= 1; i-- {
+			if n.ExtendedFinger[i] == nil {
+				continue
+			}
+			if util.BetweenNoninclusive(n.Id, n.ExtendedFinger[i].Id, target) {
+				// fmt.Println("extended finger used ")
+				return n.ExtendedFinger[i]
+			}
+		}
+
+		// if n.ExtendedFinger[n.ExtendedFingersSize] != nil && util.BetweenNoninclusive(n.Id, n.ExtendedFinger[n.ExtendedFingersSize].Id, target) {
+		// 	fmt.Println("extended finger used ")
+		// 	return n.ExtendedFinger[n.ExtendedFingersSize]
+		// }
+	}
+
+	m := 160
 	for i := m; i >= 1; i-- {
 		if util.BetweenNoninclusive(n.Id, n.Fingers[i].Id, target) {
 			return n.Fingers[i]

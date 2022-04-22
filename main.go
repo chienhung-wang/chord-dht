@@ -63,6 +63,11 @@ func main() {
 
 	go node.FixFinger()
 
+	node.Extended = false
+	if node.Extended {
+		go node.FixExtendedFingers()
+	}
+
 	log.Println("Node id ---> ", id)
 
 	log.Println("Start getting input...")
@@ -167,7 +172,7 @@ func main() {
 				for i := 0; i < rounds; i++ {
 					rs := StringWithCharset(10, charset)
 					buff[i] = rs
-					_, _, query, err := node.Put(rs, strconv.Itoa(i+1))
+					_, _, query, err := node.Put(strconv.Itoa(i+1), strconv.Itoa(i+1))
 					time.Sleep(time.Millisecond * 3)
 					if err != nil {
 						fmt.Println("PUT Err: ", err)
@@ -178,7 +183,7 @@ func main() {
 				add := time.Now()
 				gethops := 0
 				for i := 0; i < rounds; i++ {
-					_, _, query, err := node.Get(buff[i])
+					_, _, query, err := node.Get(strconv.Itoa(i + 1))
 					time.Sleep(time.Millisecond * 3)
 					if err != nil {
 						fmt.Println("GET Err: ", err)

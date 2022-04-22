@@ -19,7 +19,7 @@ import (
 var wg sync.WaitGroup
 
 func TestChordNetwork(t *testing.T) {
-	const targetNumNode = 60
+	const targetNumNode = 20
 	// const targetNumKey = 1000
 	// const targetNumGet = 1000
 	const isNaive = false
@@ -93,6 +93,7 @@ func chordNetWork(cache bool, isNaive bool, port string, ch chan string, taskCha
 	node := chord.NewNode(host_port, storageService)
 	node.IsNaive = isNaive
 	node.Cache = cache
+	node.Extended = false
 	id := node.Id
 
 	lis, err := net.Listen("tcp", host_port)
@@ -117,6 +118,10 @@ func chordNetWork(cache bool, isNaive bool, port string, ch chan string, taskCha
 	go node.UpdateBackupSuccessors()
 
 	go node.FixFinger()
+
+	if node.Extended {
+		go node.FixExtendedFingers()
+	}
 
 	log.Println("Node id ---> ", id)
 	log.Println("Start getting input...")
