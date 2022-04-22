@@ -315,8 +315,11 @@ func (n *Node) find(target *big.Int, query int) (*NodeEntry, int, error) {
 	var succ *NodeEntry
 	var found bool
 
+	if n.Cache && n.Rvn != nil && n.Rvn.Id.Cmp(target) == 0 {
+		return n.Rvn, query, nil
+	}
+
 	if n.Cache && n.Rvn != nil && !util.BetweenNoninclusive(n.Id, target, n.Rvn.Id) {
-		fmt.Println("hi")
 		succ = n.Rvn
 		found = false
 	} else {

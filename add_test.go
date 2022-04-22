@@ -19,7 +19,7 @@ import (
 var wg sync.WaitGroup
 
 func TestChordNetwork(t *testing.T) {
-	const targetNumNode = 20
+	const targetNumNode = 60
 	// const targetNumKey = 1000
 	// const targetNumGet = 1000
 	const isNaive = false
