@@ -26,8 +26,11 @@ type Node struct {
 	FingersStarts  [161]*big.Int
 	FingersEnds    [161]*big.Int
 	storageService StorageService
+	Rvn            *NodeEntry
+	Hops           int
 	Broken         bool
 	IsNaive        bool
+	Cache          bool
 }
 
 type NodeEntry struct {
@@ -75,14 +78,17 @@ func NewNode(addr string, storageService StorageService) *Node {
 		FingersEnds:    fingerEnds,
 		FingersStarts:  fingerStarts,
 		storageService: storageService,
+		Hops:           0,
+		Rvn:            nil,
 		Broken:         false,
 		IsNaive:        false,
+		Cache:          false,
 	}
 }
 
 func (n *Node) Join(id *big.Int, addr string) (*NodeEntry, error) {
 
-	found, err := n.find(id)
+	found, _, err := n.find(id, -1)
 
 	if err != nil {
 		return nil, err
@@ -97,13 +103,13 @@ func (n *Node) FixFinger() {
 	for {
 		// log.Println("")
 		idx := rand.Intn(161-1) + 1
-		found, err := n.find(n.FingersStarts[idx])
+		found, _, err := n.find(n.FingersStarts[idx], -1)
 		if err != nil {
 			log.Println("fix finger: no successor found", found)
 		} else {
 			n.Fingers[idx] = found
 		}
-		time.Sleep(time.Millisecond * 30)
+		time.Sleep(time.Millisecond * 60)
 	}
 }
 
@@ -141,7 +147,7 @@ func (n *Node) InitFingers(fingers []*NodeEntry) error {
 			fmt.Printf("different ")
 			for j := 0; j < 32; j++ {
 
-				found, next, err = RpcFindSuccessor(next.Addr, n.FingersStarts[i+1])
+				found, next, _, err = RpcFindSuccessor(next.Addr, n.FingersStarts[i+1], -1)
 
 				if err != nil {
 					log.Println("init err:", err)
@@ -296,7 +302,7 @@ func (n *Node) Notify(caller *NodeEntry) {
 }
 
 func (n *Node) Find(target *big.Int) (*NodeEntry, error) {
-	found, err := n.find(target)
+	found, _, err := n.find(target, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -304,51 +310,65 @@ func (n *Node) Find(target *big.Int) (*NodeEntry, error) {
 	return found, nil
 }
 
-func (n *Node) find(target *big.Int) (*NodeEntry, error) {
+func (n *Node) find(target *big.Int, query int) (*NodeEntry, int, error) {
 
-	found, succ := n.FindSucessor(target)
+	var succ *NodeEntry
+	var found bool
 
-	if found {
-		return succ, nil
+	if n.Cache && n.Rvn != nil && !util.BetweenNoninclusive(n.Id, target, n.Rvn.Id) {
+		fmt.Println("hi")
+		succ = n.Rvn
+		found = false
+	} else {
+		found, succ, query = n.FindSucessor(target, query)
+		if found {
+			n.Rvn = succ
+			return succ, query, nil
+		}
 	}
+
 	var next = succ
 	for i := 0; i < 32; i++ {
 		var err error
 
-		found, next, err = RpcFindSuccessor(next.Addr, target)
+		found, next, query, err = RpcFindSuccessor(next.Addr, target, query)
 
 		if err != nil {
 			log.Println("find err:", err)
 
-			return nil, err
+			return nil, -1, err
 		}
 		if found {
-			return next, nil
+			n.Rvn = next
+			return next, query, nil
 		}
 	}
 
-	return nil, errors.New("id not found")
+	return nil, query, errors.New("id not found")
 
 }
 
-func (n *Node) FindSucessor(target *big.Int) (bool, *NodeEntry) {
+func (n *Node) FindSucessor(target *big.Int, query int) (bool, *NodeEntry, int) {
+	if query != -1 {
+		query++
+	}
 	if n.SuccList[0] == nil {
-		return true, &NodeEntry{Id: n.Id, Addr: n.Addr}
+		return true, &NodeEntry{Id: n.Id, Addr: n.Addr}, query
 	}
 
 	succ := n.SuccList[0]
 
 	if util.Between(n.Id, target, succ.Id) {
-		return true, n.SuccList[0]
+		return true, n.SuccList[0], query
 	}
 
 	if !n.Broken && !n.IsNaive {
 		if closest := n.ClosestProcedingFinger(target); closest != nil {
-			return false, closest
+			return false, closest, query
 		}
 	}
 
-	return false, succ
+	return false, succ, query
 }
 
 func (n *Node) ClosestProcedingFinger(target *big.Int) *NodeEntry {
@@ -383,12 +403,12 @@ func (n *Node) GetFingers() ([][]byte, []string) {
 	return ids, addresses
 }
 
-func (n *Node) GetKeyLocation(key string) (*NodeEntry, error) {
+func (n *Node) GetKeyLocation(key string) (*NodeEntry, int, error) {
 
-	succ, err := n.find(util.Sha1_hash(key))
+	succ, query, err := n.find(util.Sha1_hash(key), 0)
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 
-	return succ, nil
+	return succ, query, nil
 }

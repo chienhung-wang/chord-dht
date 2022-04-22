@@ -20,7 +20,9 @@ func connectTo(address string) (pb.ChordNodeClient, *grpc.ClientConn, context.Co
 
 	c := pb.NewChordNodeClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	time.Sleep(time.Microsecond * 300)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
 
 	return c, conn, ctx, cancel, err
 }
@@ -60,7 +62,7 @@ func RpcCheckAlive(address string) error {
 	return nil
 }
 
-func RpcFindSuccessor(address string, id *big.Int) (bool, *NodeEntry, error) {
+func RpcFindSuccessor(address string, id *big.Int, query int) (bool, *NodeEntry, int, error) {
 	client, conn, ctx, cancel, err := connectTo(address)
 	defer conn.Close()
 	defer cancel()
@@ -69,14 +71,14 @@ func RpcFindSuccessor(address string, id *big.Int) (bool, *NodeEntry, error) {
 		log.Println(err)
 	}
 
-	res, err := client.FindSuccessor(ctx, &pb.NodeId{Id: id.Bytes()})
+	res, err := client.FindSuccessor(ctx, &pb.NodeId{Id: id.Bytes(), Query: int32(query + 1)})
 
 	if err != nil {
-		return false, nil, err
+		return false, nil, -1, err
 	} else {
 		succ := res.GetAddr()
 		succ_id := big.NewInt(0).SetBytes(succ.GetHash())
-		return res.GetFound(), &NodeEntry{Id: succ_id, Addr: succ.GetAddr()}, nil
+		return res.GetFound(), &NodeEntry{Id: succ_id, Addr: succ.GetAddr()}, int(res.Query), nil
 	}
 }
 
@@ -117,24 +119,6 @@ func RpcGetFirstSuccessor(address string) (*NodeEntry, error) {
 	id := big.NewInt(0).SetBytes(firstSucc.GetHash())
 
 	return &NodeEntry{Id: id, Addr: firstSucc.GetAddr()}, nil
-}
-
-func RpcHelpFind(address string, id *big.Int) (*NodeEntry, error) {
-	client, conn, ctx, cancel, err := connectTo(address)
-	defer conn.Close()
-	defer cancel()
-	if err != nil {
-		log.Println(err)
-	}
-
-	found, err := client.HelpFind(ctx, &pb.NodeId{Id: id.Bytes()})
-	if err != nil {
-		return nil, err
-	}
-
-	foundId := new(big.Int).SetBytes(found.GetHash())
-
-	return &NodeEntry{Id: foundId, Addr: found.Addr}, nil
 }
 
 func RpcGetFingers(address string) ([]*NodeEntry, error) {
@@ -190,10 +174,10 @@ func RpcKeyTransfer(address string, table map[string]string) error {
 	return nil
 }
 
-func (n *Node) Get(key string) (string, string, error) {
-	loc, err := n.GetKeyLocation(key)
+func (n *Node) Get(key string) (string, string, int, error) {
+	loc, query, err := n.GetKeyLocation(key)
 	if err != nil {
-		return "", "", err
+		return "", "", -1, err
 	}
 
 	client, conn, ctx, cancel, err := connectTo(loc.Addr)
@@ -207,16 +191,16 @@ func (n *Node) Get(key string) (string, string, error) {
 	kv, err := client.MapGet(ctx, &pb.Key{Key: key})
 
 	if err != nil {
-		return "", "", err
+		return "", "", -1, err
 	} else {
-		return kv.GetKey(), kv.GetVal(), nil
+		return kv.GetKey(), kv.GetVal(), query, nil
 	}
 }
 
-func (n *Node) Put(key string, val string) (string, string, error) {
-	loc, err := n.GetKeyLocation(key)
+func (n *Node) Put(key string, val string) (string, string, int, error) {
+	loc, query, err := n.GetKeyLocation(key)
 	if err != nil {
-		return "", "", err
+		return "", "", -1, err
 	}
 
 	client, conn, ctx, cancel, err := connectTo(loc.Addr)
@@ -230,14 +214,14 @@ func (n *Node) Put(key string, val string) (string, string, error) {
 	kv, err := client.MapPut(ctx, &pb.KeyVal{Key: key, Val: val})
 
 	if err != nil {
-		return "", "", err
+		return "", "", -1, err
 	} else {
-		return kv.GetKey(), kv.GetVal(), nil
+		return kv.GetKey(), kv.GetVal(), query, nil
 	}
 }
 
 func (n *Node) Delete(key string) (string, error) {
-	loc, err := n.GetKeyLocation(key)
+	loc, _, err := n.GetKeyLocation(key)
 	if err != nil {
 		return "", err
 	}

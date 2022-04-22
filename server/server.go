@@ -37,23 +37,12 @@ func (s *ChordNodeServer) Join(ctx context.Context, in *pb.NodeAddr) (*pb.NodeAd
 	}
 }
 
-func (s *ChordNodeServer) HelpFind(ctx context.Context, in *pb.NodeId) (*pb.NodeAddr, error) {
-	id := new(big.Int).SetBytes(in.GetId())
-
-	found, err := s.nodeService.Find(id)
-	if err != nil {
-		return new(pb.NodeAddr), err
-	} else {
-		return &pb.NodeAddr{Hash: found.Id.Bytes(), Addr: found.Addr}, nil
-	}
-}
-
 func (s *ChordNodeServer) FindSuccessor(ctx context.Context, in *pb.NodeId) (*pb.FindFindSuccessorResp, error) {
 
 	target := big.NewInt(0).SetBytes(in.GetId())
-	found, next := s.nodeService.FindSucessor(target)
+	found, next, query := s.nodeService.FindSucessor(target, int(in.Query))
 
-	return &pb.FindFindSuccessorResp{Found: found, Addr: &pb.NodeAddr{Hash: next.Id.Bytes(), Addr: next.Addr}}, nil
+	return &pb.FindFindSuccessorResp{Found: found, Addr: &pb.NodeAddr{Hash: next.Id.Bytes(), Addr: next.Addr}, Query: int32(query)}, nil
 }
 
 func (s *ChordNodeServer) GetFirstSuccessor(ctx context.Context, in *pb.Empty) (*pb.NodeAddr, error) {

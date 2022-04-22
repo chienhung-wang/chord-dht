@@ -11,7 +11,6 @@ service ChordNode {
     rpc GetFirstSuccessor(Empty) returns (NodeAddr) {}
     rpc Notify(NodeAddr) returns (Empty) {} // Could consider adding a sequence number
     rpc GetFingers(Empty) returns (GetFingersResp) {}
-    rpc HelpFind(NodeId) returns (NodeAddr) {}
     rpc CheckAlive(Empty) returns (Empty) {}
     rpc KeyTransfer(KeyValueMap) returns (KeyTransferResp) {}
     
@@ -44,6 +43,7 @@ message Key {
 
 message NodeId {
     bytes id = 1;
+    int32 query = 2;
 }
 
 
@@ -55,6 +55,7 @@ message NodeAddr {
 message FindFindSuccessorResp {
     bool found = 1;
     NodeAddr addr = 2;
+    int32 query = 3;
 }
 
 message Empty {

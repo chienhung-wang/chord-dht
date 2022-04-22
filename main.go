@@ -7,9 +7,12 @@ import (
 	rpc "chord-dht/server"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -24,9 +27,9 @@ func startServer(s *grpc.Server, lis net.Listener) error {
 }
 
 func getAddr() (port string, host_port string) {
-	host := os.Args[1]
+	// host := os.Args[1]
 	port = os.Args[2]
-	host_port = host + ":" + port
+	host_port = ":" + port
 	return
 }
 
@@ -121,21 +124,23 @@ func main() {
 				if suc == nil {
 					break
 				}
-				fmt.Printf(" -> %v ", suc.Addr[10:])
+				fmt.Printf(" -> %v ", suc.Addr)
 			}
 			println()
 		case "GET":
 			if len(texts) >= 2 {
-				if key, val, err := node.Get(texts[1]); err == nil {
+				if key, val, query, err := node.Get(texts[1]); err == nil {
 					fmt.Printf("{Key: %v, Val: %v} -> GET\n", key, val)
+					fmt.Printf("%v hops ~ \n", query)
 				} else {
 					fmt.Println("Error: ", err)
 				}
 			}
 		case "PUT":
 			if len(texts) >= 3 {
-				if key, val, err := node.Put(texts[1], texts[2]); err == nil {
+				if key, val, query, err := node.Put(texts[1], texts[2]); err == nil {
 					fmt.Printf("{Key: %v, Val: %v} -> PUT\n", key, val)
+					fmt.Printf("%v hops ~ \n", query)
 				} else {
 					fmt.Println("Error: ", err)
 				}
@@ -148,6 +153,48 @@ func main() {
 					fmt.Println("Error: ", err)
 				}
 			}
+		case "TEST":
+			var rounds int
+			rounds, err = strconv.Atoi(texts[1])
+
+			buff := make([]string, rounds)
+			if err != nil {
+				fmt.Println(err)
+			}
+			if len(texts) >= 2 {
+				start := time.Now()
+				puthops := 0
+				for i := 0; i < rounds; i++ {
+					rs := StringWithCharset(10, charset)
+					buff[i] = rs
+					_, _, query, err := node.Put(rs, strconv.Itoa(i+1))
+					time.Sleep(time.Millisecond * 3)
+					if err != nil {
+						fmt.Println("PUT Err: ", err)
+						continue
+					}
+					puthops += query
+				}
+				add := time.Now()
+				gethops := 0
+				for i := 0; i < rounds; i++ {
+					_, _, query, err := node.Get(buff[i])
+					time.Sleep(time.Millisecond * 3)
+					if err != nil {
+						fmt.Println("GET Err: ", err)
+						continue
+					}
+					gethops += query
+				}
+
+				get := time.Now()
+				fmt.Printf("Total time to finish test: %s \n", time.Since(start).String())
+				fmt.Printf("Total time to put : %s \n", add.Sub(start))
+				fmt.Printf("Total time to get : %s \n", get.Sub(add))
+				fmt.Printf("Total number of hops:\n")
+				fmt.Printf("PUT: %v, GET: %v\n", puthops, gethops)
+			}
+
 		case "KILL":
 			err := node.VoluntarilyLeavingKeyTransfer()
 			if err != nil {
@@ -156,4 +203,22 @@ func main() {
 			os.Exit(0)
 		}
 	}
+}
+
+const charset = "abcdefghijklmnopqrstuvwxyz" +
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+var seededRand *rand.Rand = rand.New(
+	rand.NewSource(time.Now().UnixNano()))
+
+func StringWithCharset(length int, charset string) string {
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+func String(length int) string {
+	return StringWithCharset(length, charset)
 }

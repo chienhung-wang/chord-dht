@@ -28,7 +28,6 @@ type ChordNodeClient interface {
 	GetFirstSuccessor(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*NodeAddr, error)
 	Notify(ctx context.Context, in *NodeAddr, opts ...grpc.CallOption) (*Empty, error)
 	GetFingers(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*GetFingersResp, error)
-	HelpFind(ctx context.Context, in *NodeId, opts ...grpc.CallOption) (*NodeAddr, error)
 	CheckAlive(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
 	KeyTransfer(ctx context.Context, in *KeyValueMap, opts ...grpc.CallOption) (*KeyTransferResp, error)
 	MapGet(ctx context.Context, in *Key, opts ...grpc.CallOption) (*KeyVal, error)
@@ -98,15 +97,6 @@ func (c *chordNodeClient) GetFingers(ctx context.Context, in *Empty, opts ...grp
 	return out, nil
 }
 
-func (c *chordNodeClient) HelpFind(ctx context.Context, in *NodeId, opts ...grpc.CallOption) (*NodeAddr, error) {
-	out := new(NodeAddr)
-	err := c.cc.Invoke(ctx, "/chord_pb.ChordNode/HelpFind", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *chordNodeClient) CheckAlive(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/chord_pb.ChordNode/CheckAlive", in, out, opts...)
@@ -162,7 +152,6 @@ type ChordNodeServer interface {
 	GetFirstSuccessor(context.Context, *Empty) (*NodeAddr, error)
 	Notify(context.Context, *NodeAddr) (*Empty, error)
 	GetFingers(context.Context, *Empty) (*GetFingersResp, error)
-	HelpFind(context.Context, *NodeId) (*NodeAddr, error)
 	CheckAlive(context.Context, *Empty) (*Empty, error)
 	KeyTransfer(context.Context, *KeyValueMap) (*KeyTransferResp, error)
 	MapGet(context.Context, *Key) (*KeyVal, error)
@@ -192,9 +181,6 @@ func (UnimplementedChordNodeServer) Notify(context.Context, *NodeAddr) (*Empty, 
 }
 func (UnimplementedChordNodeServer) GetFingers(context.Context, *Empty) (*GetFingersResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetFingers not implemented")
-}
-func (UnimplementedChordNodeServer) HelpFind(context.Context, *NodeId) (*NodeAddr, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method HelpFind not implemented")
 }
 func (UnimplementedChordNodeServer) CheckAlive(context.Context, *Empty) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckAlive not implemented")
@@ -332,24 +318,6 @@ func _ChordNode_GetFingers_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChordNode_HelpFind_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NodeId)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChordNodeServer).HelpFind(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/chord_pb.ChordNode/HelpFind",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChordNodeServer).HelpFind(ctx, req.(*NodeId))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ChordNode_CheckAlive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Empty)
 	if err := dec(in); err != nil {
@@ -470,10 +438,6 @@ var ChordNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetFingers",
 			Handler:    _ChordNode_GetFingers_Handler,
-		},
-		{
-			MethodName: "HelpFind",
-			Handler:    _ChordNode_HelpFind_Handler,
 		},
 		{
 			MethodName: "CheckAlive",
