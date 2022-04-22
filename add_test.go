@@ -20,10 +20,12 @@ import (
 var wg sync.WaitGroup
 
 func TestChordNetwork(t *testing.T) {
-	const targetNumNode = 10
+	const targetNumNode = 20
 	const targetNumKey = 1000
 	const targetNumGet = 1000
 	const isNaive = true
+	getFromRandomNode := true
+	putToRandomNode := true
 	port := 60445
 	wg.Add(targetNumNode)
 
@@ -33,9 +35,9 @@ func TestChordNetwork(t *testing.T) {
 		chans[i] = make(chan string)
 	}
 	var taskChan chan string
-	var ackChan chan string
+	var ackChan chan float64
 	taskChan = make(chan string, 4096)
-	ackChan = make(chan string, 4096)
+	ackChan = make(chan float64, 4096)
 
 	// start goroutine for nodes
 	for i := 0; i < targetNumNode; i++ {
@@ -49,23 +51,42 @@ func TestChordNetwork(t *testing.T) {
 	// wait for stabilize
 	time.Sleep(targetNumNode * 2 * time.Second)
 	start := time.Now()
-
+	putSum := 0.0
 	// add key-value pairs
-	for i := 0; i < targetNumKey; i++ {
-		taskChan <- "PUT " + strconv.Itoa(i) + " " + strconv.Itoa(i)
-	}
-	for i := 0; i < targetNumKey; i++ {
-		<-ackChan
+	if putToRandomNode {
+		for i := 0; i < targetNumKey; i++ {
+			taskChan <- "PUT " + strconv.Itoa(i) + " " + strconv.Itoa(i)
+		}
+		for i := 0; i < targetNumKey; i++ {
+			putSum += <-ackChan
+		}
+	} else {
+		for i := 0; i < targetNumKey; i++ {
+			chans[0] <- "PUT " + strconv.Itoa(i) + " " + strconv.Itoa(i)
+		}
+		for i := 0; i < targetNumKey; i++ {
+			putSum += <-ackChan
+		}
 	}
 	add := time.Now()
-
+	getSum := 0.0
 	// get
-	for i := 0; i < targetNumGet; i++ {
-		key := rand.Intn(targetNumKey)
-		taskChan <- "GET " + strconv.Itoa(key)
-	}
-	for i := 0; i < targetNumGet; i++ {
-		<-ackChan
+	if getFromRandomNode {
+		for i := 0; i < targetNumGet; i++ {
+			key := rand.Intn(targetNumKey)
+			taskChan <- "GET " + strconv.Itoa(key)
+		}
+		for i := 0; i < targetNumGet; i++ {
+			getSum += <-ackChan
+		}
+	} else {
+		for i := 0; i < targetNumGet; i++ {
+			key := rand.Intn(targetNumKey)
+			chans[0] <- "GET " + strconv.Itoa(key)
+		}
+		for i := 0; i < targetNumGet; i++ {
+			getSum += <-ackChan
+		}
 	}
 	get := time.Now()
 
@@ -79,10 +100,12 @@ func TestChordNetwork(t *testing.T) {
 	fmt.Printf("Total time to finish test: %s \n", time.Since(start).String())
 	fmt.Printf("Total time to put : %s \n", add.Sub(start))
 	fmt.Printf("Total time to get : %s \n", get.Sub(add))
+	fmt.Printf("Average time per put: %f \n", putSum/targetNumKey)
+	fmt.Printf("Average time per get: %f \n", getSum/targetNumGet)
 
 }
 
-func chordNetWork(isNaive bool, port string, ch chan string, taskChan chan string, ackChan chan string) {
+func chordNetWork(isNaive bool, port string, ch chan string, taskChan chan string, ackChan chan float64) {
 	defer wg.Done()
 	host_port := "localhost:" + port
 
@@ -117,9 +140,16 @@ func chordNetWork(isNaive bool, port string, ch chan string, taskChan chan strin
 	log.Println("Node id ---> ", id)
 	log.Println("Start getting input...")
 
-	input := <-ch
+	//input := <-ch
 
 	for {
+		input := ""
+		select {
+		case input = <-ch:
+			fmt.Println("received", input)
+		case input = <-taskChan:
+			fmt.Println("received taskChan", input)
+		}
 		log.Println(" **** node " + port + " get input: " + input + "*****")
 		texts := strings.Split(input, " ")
 		cmd := texts[0]
@@ -153,7 +183,7 @@ func chordNetWork(isNaive bool, port string, ch chan string, taskChan chan strin
 			if len(texts) >= 1 {
 				node.Stabilize()
 			}
-			ackChan <- "stabilize finish"
+			ackChan <- 1
 		case "PRED":
 			if len(texts) >= 1 {
 				fmt.Println("Predescessor -> ", node.Pred)
@@ -176,21 +206,27 @@ func chordNetWork(isNaive bool, port string, ch chan string, taskChan chan strin
 			}
 		case "GET":
 			if len(texts) >= 2 {
-				if key, val, err := node.Get(texts[1]); err == nil {
-					s := fmt.Sprintf("{Key: %v, Val: %v} -> GET\n", key, val)
-					ackChan <- s
+				start := time.Now()
+				if _, _, err := node.Get(texts[1]); err == nil {
+					end := time.Now()
+					//s := fmt.Sprintf("{Key: %v, Val: %v} -> GET\n", key, val)
+					//println(s)
+					ackChan <- end.Sub(start).Seconds()
 				} else {
-					ackChan <- "fail"
+					ackChan <- -1
 					fmt.Println("Error: ", err)
 				}
 			}
 		case "PUT":
+			start := time.Now()
 			if len(texts) >= 3 {
-				if key, val, err := node.Put(texts[1], texts[2]); err == nil {
-					fmt.Printf("{Key: %v, Val: %v} -> PUT\n", key, val)
-					ackChan <- "put finish"
+				if _, _, err := node.Put(texts[1], texts[2]); err == nil {
+					end := time.Now()
+					//fmt.Printf("{Key: %v, Val: %v} -> PUT\n", key, val)
+					ackChan <- end.Sub(start).Seconds()
 				} else {
-					ackChan <- "fail"
+					//end := time.Now()
+					ackChan <- -1
 					fmt.Println("Error: ", err)
 				}
 			}
@@ -205,7 +241,7 @@ func chordNetWork(isNaive bool, port string, ch chan string, taskChan chan strin
 		case "END":
 			return
 		}
-		input = <-taskChan
+		//input = <-taskChan
 
 	}
 }

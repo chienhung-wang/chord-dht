@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"log"
 	"net"
+	_ "net/http/pprof"
 	"os"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -32,7 +34,6 @@ func getAddr() (port string, host_port string) {
 
 func main() {
 	fmt.Println("Hello Chord")
-
 	port, host_port := getAddr()
 
 	storageService := chord.NewStorageService()
@@ -45,7 +46,8 @@ func main() {
 	}
 	log.Println("Server listening at " + lis.Addr().String())
 
-	s := grpc.NewServer()
+	opts := []grpc.ServerOption{grpc.ConnectionTimeout(5 * time.Second), grpc.NumStreamWorkers(40)}
+	s := grpc.NewServer(opts...)
 	rpcServer := rpc.NewChordNodeServer(storageService, node)
 
 	pb.RegisterChordNodeServer(s, rpcServer)
